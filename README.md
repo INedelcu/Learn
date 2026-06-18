@@ -1,6 +1,6 @@
 # Monte Carlo & Probability for Path Tracing — a C++ tutorial series
 
-**📖 Interactive companion site: https://inedelcu.github.io/Learn/** — each example explained with typeset math, annotated code, and live in-browser figures.
+**📖 Interactive companion site: https://inedelcu.github.io/learn/** — each example explained with typeset math, annotated code, and live in-browser figures.
 
 Forty-two small, self-contained C++ programs that build up the probability and
 statistics behind Monte Carlo integration, in the order you'd want to learn
