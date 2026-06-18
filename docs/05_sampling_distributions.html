@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 — Sampling a chosen distribution — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --cdf:#2b6cb0; --pdf:#7c3aed; --accept:#2f9e64; --reject:#e53e3e; --bar:#dd6b20; --gold:#d9a500;
+    --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--accept)}
+  .callout.warn{border-left-color:var(--reject)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Sampling a chosen distribution</h1>
+<p class="sub">05_sampling_distributions.cpp — two workhorse recipes, inversion and rejection, for turning a plain Uniform[0,1) draw into a sample from any density $p(x)$ you choose.</p>
+
+<p class="lead">Everything so far sampled uniformly. But the entire power of Monte Carlo — the freedom to pick a sampling density $p$ from example 03 — is useless until you can actually <em>draw</em> from a non-uniform $p$. This file gives the two standard ways to do it: <strong>inversion</strong> (invert the CDF; cheap and exact when you can), and <strong>rejection</strong> (throw darts under the curve; always works but wastes some). Both consume uniform draws and emit samples distributed as $p$.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> <strong>Inversion:</strong> if $U\sim\mathrm{Uniform}[0,1]$ then $X=P^{-1}(U)$ has density $p$, where $P$ is the CDF — one uniform in, one sample out, no waste. <strong>Rejection:</strong> bound $p(x)\le M\,q(x)$ with an easy $q$, draw a candidate from $q$, keep it with probability $p(x)/(M\,q(x))$ — completely general, but only a fraction $1/M$ of candidates survive.
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--cdf)"></i> CDF $P(x)$</span>
+  <span><i class="swatch" style="border-color:var(--pdf)"></i> density $p(x)$</span>
+  <span><i class="dot" style="background:var(--accept)"></i> accepted candidate</span>
+  <span><i class="dot" style="background:var(--reject)"></i> rejected candidate</span>
+  <span><i class="swatch" style="border-color:var(--bar)"></i> sampled histogram</span>
+</div>
+
+
+<h2>1. The goal: from Uniform[0,1) to any density</h2>
+
+<p>A <strong>probability density</strong> $p(x)\ge0$ with $\int p=1$ says how likely each region is. We have a generator of uniform numbers; we want samples whose histogram matches an arbitrary $p$. The trick in both methods is to route the uniformity through $p$ — either by warping the number through the CDF, or by filtering candidates so the survivors are distributed as $p$.</p>
+
+
+<h2>2. Inversion: warp a uniform number through the CDF</h2>
+
+<p>Given $p(x)$, its <strong>cumulative distribution function</strong> (CDF) accumulates probability mass from the left and rises from $0$ to $1$:</p>
+
+$$P(x)=\int_{-\infty}^{x}p(t)\,dt .$$
+
+<p>The claim is short and powerful:</p>
+
+$$\boxed{\,U\sim\mathrm{Uniform}[0,1]\ \Longrightarrow\ X=P^{-1}(U)\ \text{has density }p.\,}$$
+
+<p><strong>Why.</strong> $P(x)$ is exactly “the fraction of mass at or below $x$.” Picking $U$ uniformly chooses a mass fraction at random; $P^{-1}$ then asks “which $x$ has that much mass below it?” Where $p$ is large the CDF climbs steeply, so a wide band of $U$ values funnels into a narrow band of $x$ — landing more samples there, exactly as $p$ demands.</p>
+
+<figure>
+<svg id="inv" viewBox="0 0 600 380" role="img" aria-label="Top: the CDF with a uniform pick on the vertical axis mapped to a sample on the horizontal axis. Bottom: a histogram of the resulting samples matching the density."></svg>
+<div class="ctl">
+  density:
+  <button id="iv-2x" class="sel">p(x) = 2x</button>
+  <button id="iv-exp">exponential&nbsp; p(t)=λe<tspan>⁻λt</tspan></button>
+  <span style="margin-left:auto"></span>
+  pick U = <b id="iv-uval">0.50</b>
+  <input id="iv-u" type="range" min="1" max="999" value="500" step="1">
+</div>
+<div class="ctl">
+  <button id="iv-1">+1 sample</button>
+  <button id="iv-2000">+2,000</button>
+  <button id="iv-reset">Reset</button>
+  <span class="small">samples: <b id="iv-n">0</b> · last X = <b id="iv-x">—</b></span>
+</div>
+<figcaption>Figure 1. Inversion in two stacked panels sharing an $x$-axis. <em>Top:</em> the <span style="color:var(--cdf)">CDF $P(x)$</span> — drag $U$ on the vertical axis and follow the dashed line across to the curve, then down to the sample $X=P^{-1}(U)$. <em>Bottom:</em> the histogram of all samples drawn this way, with the target <span style="color:var(--pdf)">density $p(x)$</span> overlaid. Steep parts of the CDF concentrate samples — exactly where $p$ is tall.</figcaption>
+</figure>
+
+<h3>Worked example A — $p(x)=2x$ on $[0,1]$</h3>
+<p>A linearly-rising density. Integrate: $P(x)=\int_0^x 2t\,dt=x^2$. Invert: $P^{-1}(u)=\sqrt u$. So a single line samples it:</p>
+$$X=\sqrt{U}.$$
+<p>Larger $U$ stretches toward $1$ under the square root’s flattening — piling samples toward the right, where $p=2x$ is largest. (Try the <code>p(x)=2x</code> button above.)</p>
+
+<h3>Worked example B — the exponential, $p(t)=\lambda e^{-\lambda t}$ on $[0,\infty)$</h3>
+<p>The CDF is $P(t)=1-e^{-\lambda t}$, which inverts to</p>
+$$T=-\frac{\ln(1-U)}{\lambda}.$$
+<p>Its mean is $1/\lambda$. This one is everywhere in rendering: it samples the <strong>free-flight distance</strong> a photon travels before scattering or being absorbed in a participating medium — the Beer–Lambert law, with $\lambda$ the extinction coefficient.</p>
+
+<div class="callout">
+<strong>Rendering link.</strong> The path tracer’s <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/PathTracingStandardGlass.shader#L184" target="_blank" rel="noopener">glass shader</a> applies Beer–Lambert absorption $e^{-\,\text{extinction}\cdot t}$ along the in-glass segment; the exponential sampled here is the same law, used to pick <em>where</em> an interaction happens inside a volume. Inversion gives that distance from one uniform draw, exactly.
+</div>
+
+
+<h2>3. Rejection: throw darts under the curve</h2>
+
+<p>When the CDF has no closed-form inverse, inversion stalls — but you can still sample $p$ as long as you can (a) <em>evaluate</em> $p(x)$ and (b) find a constant $M$ and an easy-to-sample density $q$ with</p>
+
+$$p(x)\le M\,q(x)\quad\text{for all }x.$$
+
+<p>The recipe: draw a candidate $x$ from $q$, then <strong>accept</strong> it with probability $p(x)/(M\,q(x))$; otherwise discard and try again. Accepted samples follow $p$ exactly. Geometrically, with $q$ uniform it is pure darts: scatter points uniformly under the bounding box of height $M$, keep the ones that fall under the curve $p$.</p>
+
+<div class="callout warn">
+<strong>The cost.</strong> Only a fraction $1/M$ of candidates are accepted (the area under $p$ divided by the box area). A loose bound $M$ means most darts are thrown away. That waste is precisely why renderers prefer inversion / importance sampling whenever a closed form exists — and why example 06 is about choosing good densities rather than brute-forcing them.</p>
+</div>
+
+<figure>
+<svg id="rej" viewBox="0 0 600 300" role="img" aria-label="Left: candidates scattered in a box, green under the density curve and red above it. Right: histogram of accepted samples matching the density."></svg>
+<div class="ctl">
+  bound M = <b id="rj-mval">3.0</b>
+  <input id="rj-m" type="range" min="30" max="80" value="30" step="1">
+  <span style="margin-left:auto"></span>
+  <button id="rj-50">+50 darts</button>
+  <button id="rj-2000">+2,000</button>
+  <button id="rj-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>candidates thrown</span><b id="rj-tries">0</b></div>
+  <div class="row"><span>accepted</span><b id="rj-acc">0</b></div>
+  <div class="row"><span>acceptance rate</span><b id="rj-rate" style="color:var(--accept)">—</b></div>
+  <div class="row"><span>theory 1/M</span><b id="rj-theory" style="color:var(--bar)">—</b></div>
+</div>
+<figcaption>Figure 2. Rejection sampling of $p(x)=3x^2$. <em>Left:</em> candidates fill the box of height $M$; <span style="color:var(--accept)">green</span> fall under the curve and are kept, <span style="color:var(--reject)">red</span> are discarded. <em>Right:</em> the accepted $x$-values histogram into $p$. Raise $M$ to watch the acceptance rate fall toward $1/M$ — looser bounds waste more darts.</figcaption>
+</figure>
+
+<h3>Worked example C — $p(x)=3x^2$ on $[0,1]$</h3>
+<p>A valid density ($\int_0^1 3x^2\,dx=1$). With proposal $q=\mathrm{Uniform}[0,1]$ and $\max_{[0,1]}3x^2=3$, take $M=3$. The acceptance probability simplifies neatly:</p>
+$$\frac{p(x)}{M\,q(x)}=\frac{3x^2}{3\cdot1}=x^2,$$
+<p>so you accept a uniform candidate $x$ with probability $x^2$. The acceptance rate is $1/M=1/3$: about two of every three candidates are thrown away.</p>
+
+
+<h2>4. Inversion vs. rejection</h2>
+
+<table>
+<thead><tr><th>&nbsp;</th><th>Inversion</th><th>Rejection</th></tr></thead>
+<tbody>
+<tr><td><strong>needs</strong></td><td>a CDF you can invert in closed form</td><td>only to evaluate $p$, plus a bound $p\le Mq$</td></tr>
+<tr><td><strong>cost / sample</strong></td><td>one uniform draw, fixed</td><td>$M$ draws on average (variable)</td></tr>
+<tr><td><strong>waste</strong></td><td>none</td><td>a fraction $1-1/M$ rejected</td></tr>
+<tr><td><strong>generality</strong></td><td>limited to invertible CDFs</td><td>universal</td></tr>
+<tr><td><strong>use it when</strong></td><td>a closed form exists — most rendering pdfs (cosine, GGX, exponential)</td><td>no closed form, or just prototyping</td></tr>
+</tbody>
+</table>
+
+<p>In practice the renderer leans almost entirely on inversion-style sampling, because the densities it cares about (cosine-weighted hemisphere, GGX/VNDF, the exponential above) have closed-form inverses worked out — see examples 08 and 19. Rejection is the safety net for everything else.</p>
+
+
+<h2>5. Verifying a sampler</h2>
+
+<p>How do you know a sampler is correct? Histogram its output and compare each bar to the density it <em>should</em> have. The file’s <code>CheckHistogram</code> does exactly that: empirical density in a bin is $\dfrac{\text{count}}{N\cdot\text{binwidth}}$, compared against $p$ evaluated across the bin. Both interactive figures above are this same test, live — the bars settle onto the $p(x)$ curve as samples accumulate.</p>
+
+
+<h2>6. The code</h2>
+
+<p>Each sampler is a single expression (inversion) or a short accept/reject loop, followed by the histogram check:</p>
+
+<pre><code>// A — inversion of p(x) = 2x:   X = sqrt(U)
+for (int i = 0; i &lt; kN; ++i) buf[i] = std::sqrt(rng.NextFloat());
+
+// B — inversion of the exponential:  T = -ln(1-U)/lambda
+float t = -std::log(1.0f - rng.NextFloat()) / lambda;   // mean 1/lambda
+
+// C — rejection for p(x) = 3x^2, proposal Uniform, M = 3
+while (got &lt; kN) {
+    float x = rng.NextFloat();                  // candidate from q
+    ++tries;
+    if (rng.NextFloat() &lt; x * x) buf[got++] = x;  // accept w.p. p/(Mq) = x^2
+}
+// acceptance rate = kN / tries  ->  ~1/3</code></pre>
+
+<p>The reported acceptance rate lands near $1/3$, the exponential’s sample mean near $1/\lambda$, and every measured histogram bar tracks its predicted density — the samplers are correct.</p>
+
+
+<h2>7. Takeaways</h2>
+<ul>
+<li><strong>Inversion.</strong> $X=P^{-1}(U)$ turns one uniform draw into one exact sample of $p$. Use it whenever the CDF inverts in closed form. Examples: $p=2x\Rightarrow\sqrt U$; exponential $\Rightarrow-\ln(1-U)/\lambda$.</li>
+<li><strong>Rejection.</strong> Bound $p\le Mq$, draw from $q$, accept with probability $p/(Mq)$. Completely general but accepts only $1/M$ of candidates.</li>
+<li><strong>The exponential is special</strong> — it samples free-flight distance / Beer–Lambert absorption, used directly in volume and glass rendering.</li>
+<li><strong>Tradeoff.</strong> Inversion is cheap, exact, and waste-free but needs a closed form; rejection is universal but pays in thrown-away candidates. Rendering prefers inversion, falling back to rejection.</li>
+<li><strong>Always verify</strong> a sampler by histogramming against the target density.</li>
+<li>This unlocks example 06: now that we can sample <em>any</em> $p$, we can choose a clever one to slash variance — importance sampling.</li>
+</ul>
+
+<p class="small">References — inversion and rejection are standard; see Devroye, <em>Non-Uniform Random Variate Generation</em> (1986), chs. II–III, and Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.3 (“Sampling Random Variables”). The free-flight / Beer–Lambert connection appears in PBR ch. 11 (volume scattering).</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // ===================================================================
+  // Figure 1 — inversion: CDF mapping (top) + histogram (bottom)
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('inv');
+    const X0=60,X1=560;
+    const UY0=26,UY1=180;                 // top panel: u=1 at UY0, u=0 at UY1
+    const HY0=234,HY1=338;                // bottom panel: density
+    const NB=40;
+    const dens={
+      '2x':  {dlo:0,dhi:1, lab:'p(x)=2x', xlab:'x',
+              pdf:x=>2*x, cdf:x=>x*x, inv:u=>Math.sqrt(u), pmax:2, sample:()=>Math.sqrt(Math.random())},
+      'exp': {dlo:0,dhi:3, lab:'p(t)=1.5·e^(−1.5t)', xlab:'t', L:1.5,
+              pdf:t=>1.5*Math.exp(-1.5*t), cdf:t=>1-Math.exp(-1.5*t), inv:u=>-Math.log(1-u)/1.5, pmax:1.5,
+              sample:()=>-Math.log(1-Math.random())/1.5}
+    };
+    let mode='2x', u=0.5, counts=new Array(NB).fill(0), total=0;
+    const cfg=()=>dens[mode];
+    const xm=x=>{const c=cfg();return X0+(clamp(x,c.dlo,c.dhi)-c.dlo)/(c.dhi-c.dlo)*(X1-X0);};
+    const uy=v=>UY1-v*(UY1-UY0);
+    function draw(){
+      const c=cfg(); svg.textContent='';
+      // ---- top panel: CDF ----
+      svg.appendChild(svgEl('line',{x1:X0,y1:UY1,x2:X1,y2:UY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:UY0,x2:X0,y2:UY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(txt(X0-8,uy(0)+4,'0',{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'}));
+      svg.appendChild(txt(X0-8,uy(1)+4,'1',{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'}));
+      svg.appendChild(txt(X0-30,(UY0+UY1)/2,'U = P(x)',{'font-size':12,fill:'var(--cdf)','text-anchor':'middle',transform:`rotate(-90 ${X0-30} ${(UY0+UY1)/2})`}));
+      // CDF curve
+      const cv=[]; const M=120; for(let i=0;i<=M;i++){const x=c.dlo+(c.dhi-c.dlo)*i/M; cv.push([xm(x),uy(c.cdf(x))]);}
+      svg.appendChild(polyline(cv,'var(--cdf)',2.4));
+      svg.appendChild(txt(X1-4,uy(c.cdf(c.dhi))-8,'CDF P(x)',{'font-size':12,fill:'var(--cdf)','text-anchor':'end'}));
+      // mapping for current u
+      const x=clamp(c.inv(u),c.dlo,c.dhi);
+      svg.appendChild(svgEl('line',{x1:X0,y1:uy(u),x2:xm(x),y2:uy(u),stroke:'var(--cdf)','stroke-width':1.4,'stroke-dasharray':'4 3'}));
+      svg.appendChild(svgEl('line',{x1:xm(x),y1:uy(u),x2:xm(x),y2:HY1,stroke:'var(--bar)','stroke-width':1.4,'stroke-dasharray':'4 3'}));
+      svg.appendChild(svgEl('circle',{cx:xm(x),cy:uy(u),r:3.5,fill:'var(--cdf)'}));
+      svg.appendChild(txt(X0+6,uy(u)-5,'U='+u.toFixed(2),{'font-size':11,fill:'var(--cdf)'}));
+      // ---- bottom panel: histogram + pdf ----
+      const dmax=c.pmax*1.25, binW=(c.dhi-c.dlo)/NB;
+      const dym=d=>HY1-clamp(d,0,dmax)/dmax*(HY1-HY0);
+      svg.appendChild(svgEl('line',{x1:X0,y1:HY1,x2:X1,y2:HY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:HY0,x2:X0,y2:HY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const measured=counts[b]/(total*binW);
+        const x0=X0+(b/NB)*(X1-X0), w=(X1-X0)/NB;
+        svg.appendChild(svgEl('rect',{x:x0+0.4,y:dym(measured),width:Math.max(0.4,w-0.8),height:HY1-dym(measured),fill:'#fbe2c8',stroke:'var(--bar)','stroke-width':0.5}));}
+      // pdf overlay
+      const pp=[]; for(let i=0;i<=120;i++){const xx=c.dlo+(c.dhi-c.dlo)*i/120; pp.push([xm(xx),dym(c.pdf(xx))]);}
+      svg.appendChild(polyline(pp,'var(--pdf)',2.4));
+      svg.appendChild(txt(X1-4,dym(c.pdf(c.dlo))+ (mode==='2x'?-6:14),'density p',{'font-size':12,fill:'var(--pdf)','text-anchor':'end'}));
+      // x ticks
+      [c.dlo,(c.dlo+c.dhi)/2,c.dhi].forEach(v=>{svg.appendChild(txt(xm(v),HY1+15,v.toFixed(1),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));});
+      svg.appendChild(txt((X0+X1)/2,HY1+34,'sample value  '+c.xlab+'  =  P⁻¹(U)',{'font-size':12,fill:'#5b6472','text-anchor':'middle'}));
+      // readouts
+      document.getElementById('iv-uval').textContent=u.toFixed(2);
+      document.getElementById('iv-n').textContent=total.toLocaleString();
+      document.getElementById('iv-x').textContent=c.inv(u).toFixed(3);
+    }
+    function addSamples(k){const c=cfg();let lastU=u;
+      for(let i=0;i<k;i++){const uu=Math.random(); lastU=uu; const x=c.inv(uu);
+        const b=Math.floor((x-c.dlo)/((c.dhi-c.dlo)/NB)); if(b>=0&&b<NB){counts[b]++;}
+        total++;}
+      if(k<=1){ u=lastU; document.getElementById('iv-u').value=Math.round(u*1000); }  // single draw shows its own mapping; bulk leaves the slider put
+      draw();
+    }
+    function setMode(m){mode=m;counts=new Array(NB).fill(0);total=0;
+      document.getElementById('iv-2x').classList.toggle('sel',m==='2x');
+      document.getElementById('iv-exp').classList.toggle('sel',m==='exp');
+      draw();}
+    document.getElementById('iv-2x').onclick=()=>setMode('2x');
+    document.getElementById('iv-exp').onclick=()=>setMode('exp');
+    document.getElementById('iv-1').onclick=()=>addSamples(1);
+    document.getElementById('iv-2000').onclick=()=>addSamples(2000);
+    document.getElementById('iv-reset').onclick=()=>{counts=new Array(NB).fill(0);total=0;draw();};
+    const sl=document.getElementById('iv-u');
+    sl.addEventListener('input',()=>{u=clamp(+sl.value/1000,0.001,0.999);draw();});
+    setMode('2x'); addSamples(2000);
+  })();
+
+  // ===================================================================
+  // Figure 2 — rejection sampling
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('rej');
+    const pdf=x=>3*x*x;                     // p(x)=3x^2 on [0,1]
+    // left box panel
+    const BX0=44,BX1=300,BY0=22,BY1=258;
+    // right histogram panel
+    const HX0=350,HX1=580,HY0=22,HY1=258, NB=20, DMAX=3.6;
+    let M=3, tries=0, acc=0, counts=new Array(NB).fill(0), darts=[];
+    const DRAWCAP=1600;
+    const bx=x=>BX0+x*(BX1-BX0);
+    const by=y=>BY1-clamp(y,0,M)/M*(BY1-BY0);
+    const hx=x=>HX0+x*(HX1-HX0);
+    const hy=d=>HY1-clamp(d,0,DMAX)/DMAX*(HY1-HY0);
+    function draw(){
+      svg.textContent='';
+      // ---- left: box + curve + darts ----
+      svg.appendChild(svgEl('rect',{x:BX0,y:BY0,width:BX1-BX0,height:BY1-BY0,fill:'#fff',stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(txt(BX0,BY0-7,'M',{'font-size':11,fill:'#8a8f9c'}));
+      svg.appendChild(txt(BX0-6,BY1+4,'0',{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'}));
+      // curve p
+      const cv=[]; for(let i=0;i<=80;i++){const x=i/80; cv.push([bx(x),by(pdf(x))]);}
+      svg.appendChild(polyline(cv,'var(--pdf)',2.2));
+      svg.appendChild(txt(bx(0.62),by(pdf(0.62))-6,'p(x)=3x²',{'font-size':11.5,fill:'var(--pdf)'}));
+      // darts (recent subset)
+      const show=Math.min(darts.length,DRAWCAP);
+      for(let i=darts.length-show;i<darts.length;i++){const d=darts[i];
+        svg.appendChild(svgEl('circle',{cx:bx(d.x).toFixed(1),cy:by(d.y).toFixed(1),r:1.6,fill:d.acc?'var(--accept)':'var(--reject)','fill-opacity':0.62}));}
+      svg.appendChild(txt((BX0+BX1)/2,BY1+18,'candidate x  (box height = M)',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      // ---- right: histogram of accepted + pdf ----
+      svg.appendChild(svgEl('line',{x1:HX0,y1:HY1,x2:HX1,y2:HY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:HX0,y1:HY0,x2:HX0,y2:HY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      const binW=1/NB;
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const measured=counts[b]/(acc*binW);
+        const x0=HX0+(b/NB)*(HX1-HX0), w=(HX1-HX0)/NB;
+        svg.appendChild(svgEl('rect',{x:x0+0.5,y:hy(measured),width:Math.max(0.5,w-1),height:HY1-hy(measured),fill:'#fbe2c8',stroke:'var(--bar)','stroke-width':0.5}));}
+      const pp=[]; for(let i=0;i<=80;i++){const x=i/80; pp.push([hx(x),hy(pdf(x))]);}
+      svg.appendChild(polyline(pp,'var(--pdf)',2.2));
+      svg.appendChild(txt((HX0+HX1)/2,HY1+18,'accepted samples → p(x)',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      svg.appendChild(txt((HX0+HX1)/2,HY0+2,'histogram of accepted x',{'font-size':11,fill:'#8a8f9c','text-anchor':'middle'}));
+      // readouts
+      document.getElementById('rj-tries').textContent=tries.toLocaleString();
+      document.getElementById('rj-acc').textContent=acc.toLocaleString();
+      document.getElementById('rj-rate').textContent=tries?(acc/tries).toFixed(3):'—';
+      document.getElementById('rj-theory').textContent=(1/M).toFixed(3);
+      document.getElementById('rj-mval').textContent=M.toFixed(1);
+    }
+    function add(k){
+      for(let i=0;i<k;i++){const x=Math.random(), y=Math.random()*M; const a=y<pdf(x);
+        tries++; if(a){acc++; const b=Math.min(NB-1,Math.floor(x*NB)); counts[b]++;}
+        darts.push({x,y,acc:a}); if(darts.length>DRAWCAP) darts.shift();}
+      draw();
+    }
+    function reset(){tries=0;acc=0;counts=new Array(NB).fill(0);darts=[];draw();}
+    document.getElementById('rj-50').onclick=()=>add(50);
+    document.getElementById('rj-2000').onclick=()=>add(2000);
+    document.getElementById('rj-reset').onclick=reset;
+    const sl=document.getElementById('rj-m');
+    sl.addEventListener('input',()=>{M=+sl.value/10; reset();});
+    add(2000);
+  })();
+})();
+</script>
+
+</body>
+</html>

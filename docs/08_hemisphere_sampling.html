@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>08 — Hemisphere sampling: uniform vs cosine — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --uni:#dd6b20; --cos:#2f9e64; --normal:#2b6cb0; --true:#7c3aed; --cell:#c2c8d2; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--cos)}
+  .callout.warn{border-left-color:var(--uni)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Hemisphere sampling: uniform vs cosine-weighted</h1>
+<p class="sub">08_hemisphere_sampling.cpp — where the series meets the path tracer. The rendering equation is a hemisphere integral with a cosine factor; sampling directions <em>proportional to that cosine</em> cancels it and slashes the noise.</p>
+
+<p class="lead">A surface point gathers light from every direction in the hemisphere above it, weighted by $\cos\theta$ (Lambert’s law — light arriving at a grazing angle is spread thin). We estimate that integral by sampling directions $\omega$ from a density $p(\omega)$ and averaging $f_r L_i\cos\theta / p(\omega)$. The choice of $p$ is the importance-sampling lever from example 06, now in its most important guise: matching $p$ to the $\cos\theta$ in the integrand.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Sampling the hemisphere <em>cosine-weighted</em> ($p=\cos\theta/\pi$) instead of uniformly ($p=1/2\pi$) makes the $\cos\theta$ factor cancel in the estimator $f_r L_i\cos\theta/p$ — for the pure cosine integral that cancellation is total (every sample returns the exact answer, zero variance), and for diffuse bounces it reduces the Lambertian weight to just the albedo.</p>
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--normal)"></i> surface normal $\mathbf N$ / hemisphere</span>
+  <span><i class="dot" style="background:var(--uni)"></i> uniform (solid angle)</span>
+  <span><i class="dot" style="background:var(--cos)"></i> cosine-weighted</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> exact value</span>
+</div>
+
+
+<h2>1. The integral: light over the hemisphere</h2>
+
+<p>The outgoing radiance is the reflectance integral — the BRDF $f_r$ times incoming light $L_i$ times the cosine of the angle to the normal, integrated over the hemisphere $\mathcal H^2$:</p>
+
+$$L_o(\omega_o)=\int_{\mathcal H^2} f_r(\omega_o,\omega_i)\,L_i(\omega_i)\,\cos\theta_i\,d\omega_i\;\approx\;\frac1N\sum_{i=1}^N\frac{f_r\,L_i\,\cos\theta_i}{p(\omega_i)} .$$
+
+<p>With $\theta$ measured from the normal, $\cos\theta$ is just the $z$-component of the (unit) direction. The whole game on this page is choosing $p(\omega)$ well.</p>
+
+<figure>
+<svg viewBox="0 0 680 250" role="img" aria-label="A hemisphere over a surface point with the normal, a sample direction, the angle theta, and the cosine factor.">
+  <!-- surface -->
+  <line x1="70" y1="200" x2="610" y2="200" stroke="#9aa0ad" stroke-width="1.6"/>
+  <text x="74" y="218" font-size="12.5" fill="#8a8f9c">surface</text>
+  <!-- dome -->
+  <path d="M210,200 A130,130 0 0,1 470,200" fill="#eef2f8" stroke="var(--normal)" stroke-width="1.4"/>
+  <circle cx="340" cy="200" r="3.2" fill="#1f2430"/>
+  <!-- normal -->
+  <line x1="340" y1="200" x2="340" y2="58" stroke="var(--normal)" stroke-width="2.2" marker-end="url(#a-n)"/>
+  <text x="346" y="64" font-size="14" fill="var(--normal)" font-weight="600">N</text>
+  <!-- sample direction omega at theta=42deg from vertical: (sin,cos)*130 -->
+  <line x1="340" y1="200" x2="427" y2="103" stroke="var(--cos)" stroke-width="2.4" marker-end="url(#a-w)"/>
+  <text x="432" y="100" font-size="14" fill="var(--cos)" font-weight="600">ω</text>
+  <!-- theta arc -->
+  <path d="M340,140 A60,60 0 0,1 380,150" fill="none" stroke="#8a8f9c" stroke-width="1.2"/>
+  <text x="356" y="135" font-size="13" fill="#5b6472">θ</text>
+  <!-- cos theta projection: horizontal dotted from omega tip to normal axis -->
+  <line x1="427" y1="103" x2="340" y2="103" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+  <text x="300" y="100" font-size="12.5" fill="var(--ink)">cos θ</text>
+  <!-- annotations on right -->
+  <text x="500" y="120" font-size="13.5" fill="#5b6472">cos θ = z-height</text>
+  <text x="500" y="142" font-size="13.5" fill="#5b6472">of the direction</text>
+  <defs>
+    <marker id="a-n" markerWidth="9" markerHeight="7" refX="7" refY="2.8" orient="auto"><path d="M0,0 L7,2.8 L0,5.6 Z" fill="var(--normal)"/></marker>
+    <marker id="a-w" markerWidth="9" markerHeight="7" refX="7" refY="2.8" orient="auto"><path d="M0,0 L7,2.8 L0,5.6 Z" fill="var(--cos)"/></marker>
+  </defs>
+</svg>
+<figcaption>Figure 1. The hemisphere integral. A direction $\omega$ makes angle $\theta$ with the normal $\mathbf N$; its cosine is just the height $z$. The $\cos\theta$ weight means near-grazing directions (large $\theta$) contribute little — which is exactly the bias a good sampler should exploit.</figcaption>
+</figure>
+
+
+<h2>2. Two ways to sample a direction</h2>
+
+<p>Both strategies turn two uniform numbers $u_1,u_2$ into a unit direction $(x,y,z)$ with $z=\cos\theta$.</p>
+
+<h3>Uniform over solid angle — $p(\omega)=\dfrac{1}{2\pi}$</h3>
+<p>Every direction equally likely. Sampling $z$ uniformly in $[0,1]$ gives uniform solid angle (equal-area bands of the dome get equal probability):</p>
+$$z=u_1,\qquad r=\sqrt{1-z^2},\qquad \phi=2\pi u_2,\qquad \omega=(r\cos\phi,\ r\sin\phi,\ z).$$
+
+<h3>Cosine-weighted — $p(\omega)=\dfrac{\cos\theta}{\pi}$</h3>
+<p>Directions near the normal are more likely, in proportion to $\cos\theta$. The slick way is <strong>Malley’s method</strong>: sample a point uniformly on the unit disk and lift it straight up onto the hemisphere.</p>
+$$r=\sqrt{u_1},\quad \phi=2\pi u_2,\quad (x,y)=(r\cos\phi,\ r\sin\phi),\quad z=\sqrt{1-u_1}.$$
+
+
+<h2>3. See the difference</h2>
+
+<p>Look straight down the normal so the hemisphere flattens to the unit disk (each direction plotted at its projected $(x,y)$). The contrast is stark, and it <em>is</em> Malley’s method made visible: cosine-weighting fills the disk <strong>uniformly</strong>, while uniform-solid-angle piles samples up at the rim — the grazing directions that the $\cos\theta$ factor will mostly discard.</p>
+
+<figure>
+<svg id="disk" viewBox="0 0 600 320" role="img" aria-label="Top-down view of the hemisphere as a disk, with samples scattered by the chosen strategy."></svg>
+<div class="ctl">
+  strategy:
+  <button id="dk-uni">uniform (solid angle)</button>
+  <button id="dk-cos" class="sel">cosine-weighted</button>
+  <span style="margin-left:auto"></span>
+  <button id="dk-roll">Re-roll</button>
+</div>
+<figcaption>Figure 2. The hemisphere from above (center = normal/pole, rim = horizon/grazing). <span style="color:var(--cos)">Cosine-weighted</span> samples fill the disk evenly — a uniform point on the disk <em>is</em> a cosine-weighted direction (Malley). <span style="color:var(--uni)">Uniform-solid-angle</span> samples crowd the rim, spending effort on grazing directions the cosine factor down-weights.</figcaption>
+</figure>
+
+
+<h2>4. Why cosine-weighting wins: the cosine cancels</h2>
+
+<p>This is the zero-variance ideal of example 06, realized. When the integrand contains a $\cos\theta$ and you sample with $p\propto\cos\theta$, that factor divides out of $f/p$. The file shows it on two integrals with known answers:</p>
+
+<table>
+<thead><tr><th>integral</th><th>exact</th><th>uniform estimator $f/p$</th><th>cosine estimator $f/p$</th></tr></thead>
+<tbody>
+<tr><td>$\displaystyle\int_{\mathcal H^2}\cos\theta\,d\omega$</td><td class="num">$\pi$</td><td>$2\pi z$ &nbsp;(varies $0\!\to\!2\pi$)</td><td><b style="color:var(--cos)">$\pi$ — constant!</b></td></tr>
+<tr><td>$\displaystyle\int_{\mathcal H^2}\cos^3\theta\,d\omega$</td><td class="num">$\pi/2$</td><td>$2\pi z^3$</td><td>$\pi z^2$ &nbsp;(one cosine cancelled)</td></tr>
+</tbody>
+</table>
+
+<p>For integral (1), $f=\cos\theta=z$ and $p=z/\pi$, so $f/p=\pi$ for <em>every</em> sample — <strong>zero variance</strong>, the exact answer from a single draw. For integral (2), $f=z^3$ and $p=z/\pi$ give $f/p=\pi z^2$: one of the three cosines cancels, flattening the estimator and cutting variance about <strong>3.9×</strong> versus uniform. The per-sample variances work out to:</p>
+
+<div class="panel" style="grid-template-columns:1fr">
+  <div class="row"><span>$\int\cos\theta$ — uniform</span><b>≈ 3.29</b></div>
+  <div class="row"><span>$\int\cos\theta$ — cosine</span><b style="color:var(--cos)">0 (exactly)</b></div>
+  <div class="row"><span>$\int\cos^3\theta$ — uniform</span><b>≈ 3.17</b></div>
+  <div class="row"><span>$\int\cos^3\theta$ — cosine</span><b style="color:var(--cos)">≈ 0.82&nbsp;&nbsp;(3.9× less)</b></div>
+</div>
+
+
+<h2>5. The payoff, sample by sample</h2>
+
+<p>Histogram the per-sample estimator values $f(\omega)/p(\omega)$ themselves — the quantities being averaged. The tighter their spread, the lower the variance. Switch integrals and compare: for $\int\cos\theta$ the cosine estimator collapses to a single spike at $\pi$ (every sample is exactly the answer), while uniform spreads across the whole range.</p>
+
+<figure>
+<svg id="vals" viewBox="0 0 600 320" role="img" aria-label="Stacked histograms of per-sample estimator values for uniform and cosine sampling."></svg>
+<div class="ctl">
+  integrand:
+  <button id="vl-1" class="sel">∫ cos θ  (= π)</button>
+  <button id="vl-2">∫ cos³ θ  (= π/2)</button>
+  <span style="margin-left:auto"></span>
+  <button id="vl-20">+20,000 samples</button>
+  <button id="vl-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>samples each</span><b id="vl-n">0</b></div>
+  <div class="row"><span>mean (→ exact)</span><b id="vl-mean">—</b></div>
+  <div class="row"><span>variance — uniform</span><b id="vl-vu" style="color:var(--uni)">—</b></div>
+  <div class="row"><span>variance — cosine</span><b id="vl-vc" style="color:var(--cos)">—</b></div>
+</div>
+<figcaption>Figure 3. Distribution of the per-sample estimator value $f/p$ (value axis $0\to2\pi$), <span style="color:var(--uni)">uniform</span> on top and <span style="color:var(--cos)">cosine</span> below, with the exact value marked. For $\int\cos\theta$ the cosine row is a single spike at $\pi$ — zero variance. For $\int\cos^3\theta$ it is merely much narrower than uniform.</figcaption>
+</figure>
+
+
+<h2>6. Why Malley’s method gives the cosine</h2>
+
+<p>Sampling a uniform point on the disk and projecting it straight up onto the hemisphere produces cosine-weighted directions — no trig, no inverse CDF over $\theta$. The reason is a clean change of variables: a direction at angle $\theta$ projects to disk radius $r=\sin\theta$. A uniform disk has areal density $\tfrac1\pi$; converting the area element to solid angle introduces exactly a $\cos\theta$, so the solid-angle density comes out $p(\omega)=\cos\theta/\pi$.</p>
+
+<figure>
+<svg viewBox="0 0 680 230" role="img" aria-label="Malley's method: a uniform point on the disk lifted vertically onto the hemisphere.">
+  <line x1="80" y1="180" x2="600" y2="180" stroke="#9aa0ad" stroke-width="1.4"/>
+  <!-- dome -->
+  <path d="M210,180 A130,130 0 0,1 470,180" fill="none" stroke="var(--normal)" stroke-width="1.4"/>
+  <!-- disk (as a flattened ellipse on the ground) -->
+  <ellipse cx="340" cy="180" rx="130" ry="26" fill="#eef2f8" stroke="#9aa0ad" stroke-width="1"/>
+  <text x="475" y="184" font-size="12.5" fill="#8a8f9c">unit disk (uniform)</text>
+  <!-- a disk point -->
+  <circle cx="404" cy="188" r="3.4" fill="var(--cos)"/>
+  <text x="392" y="208" font-size="12" fill="var(--cos)">r = sin θ</text>
+  <!-- lift straight up to dome: point on dome at same x -->
+  <line x1="404" y1="188" x2="404" y2="123" stroke="var(--cos)" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#m-up)"/>
+  <circle cx="404" cy="118" r="3.6" fill="var(--cos)"/>
+  <!-- normal & direction -->
+  <line x1="340" y1="180" x2="340" y2="60" stroke="var(--normal)" stroke-width="1.8"/>
+  <text x="346" y="66" font-size="13" fill="var(--normal)" font-weight="600">N</text>
+  <line x1="340" y1="180" x2="404" y2="118" stroke="var(--cos)" stroke-width="2"/>
+  <text x="410" y="116" font-size="13" fill="var(--cos)" font-weight="600">ω</text>
+  <text x="500" y="120" font-size="13.5" fill="#5b6472">uniform on disk</text>
+  <text x="500" y="142" font-size="13.5" fill="#5b6472">→ cos-weighted on dome</text>
+  <defs><marker id="m-up" markerWidth="9" markerHeight="7" refX="7" refY="2.8" orient="auto"><path d="M0,0 L7,2.8 L0,5.6 Z" fill="var(--cos)"/></marker></defs>
+</svg>
+<figcaption>Figure 4. Malley’s method. A point drawn uniformly on the unit disk at radius $r$ lifts vertically to the hemisphere direction with $\sin\theta=r$, $\cos\theta=\sqrt{1-r^2}$. The uniform disk density becomes $\cos\theta/\pi$ on the hemisphere — the cosine appears for free from the projection.</figcaption>
+</figure>
+
+
+<h2>7. This is the diffuse bounce in the renderer</h2>
+
+<div class="callout">
+<strong>Rendering link.</strong> A Lambertian (diffuse) surface has BRDF $f_r=\rho/\pi$ (albedo over $\pi$). Sampling the bounce direction cosine-weighted, $p=\cos\theta/\pi$, makes the weight
+$\dfrac{f_r\,L_i\,\cos\theta}{p}=\dfrac{(\rho/\pi)\,L_i\,\cos\theta}{\cos\theta/\pi}=\rho\,L_i$ — both the $\cos\theta$ and the $\pi$ cancel, leaving just the albedo. That is exactly why <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/BRDF.hlsl#L148" target="_blank" rel="noopener"><code>SampleDiffuseLambert</code></a> returns a weight of plain albedo with no leftover cosine: the cosine-weighted pdf was chosen precisely to cancel it.
+</div>
+
+
+<h2>8. The code</h2>
+
+<p>Each iteration draws one sample with each strategy and feeds the per-sample estimator value into an online mean/variance accumulator (Welford, example 01):</p>
+
+<pre><code>// uniform over solid angle:  p = 1/(2π),  z = cosθ uniform in [0,1]
+double z = u1;  double pdf = 1.0/(2.0*PI);
+uni1.add( z       / pdf );   // ∫cosθ   →  2π·z
+uni2.add( z*z*z   / pdf );   // ∫cos³θ  →  2π·z³
+
+// cosine-weighted (Malley):  p = cosθ/π,  z = sqrt(1 - u1)
+double z = sqrt(1.0 - u1);  double pdf = z/PI;
+cos1.add( z       / pdf );   // ∫cosθ   →  z/(z/π) = π        (constant → var 0)
+cos2.add( z*z*z   / pdf );   // ∫cos³θ  →  z³/(z/π) = π·z²
+
+printf("variance reduction (2): %.1fx\n", uni2.var()/cos2.var());  // ~3.9x</code></pre>
+
+<p>Integral (1)’s cosine column reports variance exactly zero (every value is $\pi$); integral (2)’s drops several-fold. Both strategies are unbiased — the means match $\pi$ and $\pi/2$.</p>
+
+
+<h2>9. Takeaways</h2>
+<ul>
+<li><strong>The rendering equation is a hemisphere integral with a $\cos\theta$ factor.</strong> We estimate it as $\frac1N\sum f_r L_i\cos\theta/p(\omega)$; the art is choosing $p$.</li>
+<li><strong>Uniform solid angle</strong> ($p=1/2\pi$, sample $z=u_1$) wastes effort on grazing directions the cosine down-weights.</li>
+<li><strong>Cosine-weighted</strong> ($p=\cos\theta/\pi$, Malley’s disk-lift) puts samples where the cosine sends them, cancelling that factor in $f/p$.</li>
+<li><strong>Total cancellation for $\int\cos\theta$</strong> — zero variance, the ideal importance-sampling case; ~3.9× for $\int\cos^3\theta$.</li>
+<li><strong>It is the diffuse bounce.</strong> Cosine-weighted sampling reduces the Lambertian weight to plain albedo — the principle behind <code>SampleDiffuseLambert</code>.</li>
+</ul>
+
+<p class="small">References — hemisphere sampling and Malley’s method: Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.6 (“2D Sampling with Multidimensional Transformations”); cosine-weighted diffuse sampling in the renderer: <code>BRDF.hlsl</code> (<a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/BRDF.hlsl#L148" target="_blank" rel="noopener">SampleDiffuseLambert</a>). Importance sampling background: example 06.</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const PI=Math.PI;
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // ===================================================================
+  // Figure 2 — top-down disk scatter
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('disk');
+    const cx=300, cy=160, R=132;
+    let mode='cos';
+    function sample(){ // returns projected (px,py) in disk coords (radius<=1)
+      const u1=Math.random(), u2=Math.random(), phi=2*PI*u2;
+      let r;
+      if(mode==='uni'){ const z=u1; r=Math.sqrt(1-z*z); }   // uniform solid angle
+      else { r=Math.sqrt(u1); }                              // cosine (Malley: r=sqrt(u1))
+      return [r*Math.cos(phi), r*Math.sin(phi)];
+    }
+    function draw(){
+      svg.textContent='';
+      // disk outline + guide rings
+      svg.appendChild(svgEl('circle',{cx,cy,r:R,fill:'#f4f7fb',stroke:'var(--normal)','stroke-width':1.4}));
+      [0.33,0.66].forEach(t=>svg.appendChild(svgEl('circle',{cx,cy,r:R*t,fill:'none',stroke:'#e1e6ee','stroke-width':1})));
+      svg.appendChild(svgEl('circle',{cx,cy,r:2.6,fill:'var(--normal)'}));
+      svg.appendChild(txt(cx,cy-R-8,'horizon (grazing, θ≈90°)',{'font-size':11.5,fill:'#8a8f9c','text-anchor':'middle'}));
+      svg.appendChild(txt(cx+8,cy+14,'normal (θ=0)',{'font-size':11,fill:'var(--normal)'}));
+      const col=mode==='uni'?'var(--uni)':'var(--cos)';
+      for(let i=0;i<700;i++){const p=sample(); svg.appendChild(svgEl('circle',{cx:(cx+p[0]*R).toFixed(1),cy:(cy+p[1]*R).toFixed(1),r:1.7,fill:col,'fill-opacity':0.5}));}
+      // side label
+      svg.appendChild(txt(cx+R+18,cy-4,mode==='uni'?'uniform:':'cosine:',{'font-size':12.5,fill:col,'font-weight':600,'text-anchor':'start'}));
+      svg.appendChild(txt(cx+R+18,cy+14,mode==='uni'?'rim-crowded':'fills evenly',{'font-size':12,fill:'#5b6472','text-anchor':'start'}));
+    }
+    function setMode(m){mode=m;document.getElementById('dk-uni').classList.toggle('sel',m==='uni');document.getElementById('dk-cos').classList.toggle('sel',m==='cos');draw();}
+    document.getElementById('dk-uni').onclick=()=>setMode('uni');
+    document.getElementById('dk-cos').onclick=()=>setMode('cos');
+    document.getElementById('dk-roll').onclick=draw;
+    setMode('cos');
+  })();
+
+  // ===================================================================
+  // Figure 3 — per-sample estimator value histograms
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('vals');
+    const X0=46,X1=566, NB=60, VMAX=2*PI;
+    const UY0=24,UY1=140, CY0=162,CY1=278;
+    let integ=1, cu=new Array(NB).fill(0), cc=new Array(NB).fill(0), total=0;
+    let su=0,s2u=0, sc=0,s2c=0;
+    const xm=v=>X0+clamp(v,0,VMAX)/VMAX*(X1-X0);
+    function exact(){return integ===1?PI:PI/2;}
+    // per-sample estimator values
+    function valUni(){const z=Math.random(); return integ===1 ? 2*PI*z : 2*PI*z*z*z;}
+    function valCos(){const u1=Math.random(); const z=Math.sqrt(1-u1); return integ===1 ? PI : PI*z*z;}
+    function panel(y0,y1,counts,color,label){
+      let maxC=0;for(const c of counts)maxC=Math.max(maxC,c);const CMAX=Math.max(maxC,1)*1.12;
+      const ym=c=>y1-clamp(c,0,CMAX)/CMAX*(y1-y0);
+      svg.appendChild(svgEl('line',{x1:X0,y1:y1,x2:X1,y2:y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const x0=X0+(b/NB)*(X1-X0),w=(X1-X0)/NB;
+        svg.appendChild(svgEl('rect',{x:x0+0.4,y:ym(counts[b]),width:Math.max(0.6,w-0.8),height:y1-ym(counts[b]),fill:color,'fill-opacity':0.32,stroke:color,'stroke-width':0.5}));}
+      svg.appendChild(svgEl('line',{x1:xm(exact()),y1:y0,x2:xm(exact()),y2:y1,stroke:'var(--true)','stroke-width':1.8}));
+      svg.appendChild(txt(X0+6,y0+13,label,{'font-size':12,fill:color,'font-weight':600}));
+    }
+    function draw(){
+      svg.textContent='';
+      svg.appendChild(txt(xm(exact()),15,'exact = '+(integ===1?'π':'π/2'),{'font-size':11,fill:'var(--true)','text-anchor':'middle'}));
+      panel(UY0,UY1,cu,'var(--uni)','uniform  f/p');
+      panel(CY0,CY1,cc,'var(--cos)','cosine  f/p');
+      // value axis ticks
+      [0,PI/2,PI,3*PI/2,2*PI].forEach((v,i)=>{svg.appendChild(txt(xm(v),CY1+16,['0','π/2','π','3π/2','2π'][i],{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));});
+      svg.appendChild(txt((X0+X1)/2,CY1+36,'per-sample estimator value  f(ω)/p(ω)',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      const vu=total>1?s2u/(total-1):0, vc=total>1?s2c/(total-1):0;
+      document.getElementById('vl-n').textContent=total.toLocaleString();
+      document.getElementById('vl-mean').textContent=total?((su/total).toFixed(4)+' / '+(sc/total).toFixed(4)):'—';
+      document.getElementById('vl-vu').textContent=total?vu.toFixed(4):'—';
+      document.getElementById('vl-vc').textContent=total?(vc<1e-9?'0 (exactly!)':vc.toFixed(4)):'—';
+    }
+    let mu=0,m2u=0,mc=0,m2c=0;
+    function add(M){
+      for(let i=0;i<M;i++){const vu=valUni(), vc=valCos(); total++;
+        cu[Math.floor(clamp(vu,0,VMAX-1e-9)/VMAX*NB)]++;
+        cc[Math.floor(clamp(vc,0,VMAX-1e-9)/VMAX*NB)]++;
+        let d=vu-mu; mu+=d/total; m2u+=d*(vu-mu);
+        d=vc-mc; mc+=d/total; m2c+=d*(vc-mc);
+      }
+      su=mu*total; sc=mc*total; s2u=m2u; s2c=m2c;
+      draw();
+    }
+    function reset(){cu=new Array(NB).fill(0);cc=new Array(NB).fill(0);total=0;mu=0;m2u=0;mc=0;m2c=0;su=0;sc=0;s2u=0;s2c=0;draw();}
+    function setInteg(n){integ=n;document.getElementById('vl-1').classList.toggle('sel',n===1);document.getElementById('vl-2').classList.toggle('sel',n===2);reset();add(20000);}
+    document.getElementById('vl-1').onclick=()=>setInteg(1);
+    document.getElementById('vl-2').onclick=()=>setInteg(2);
+    document.getElementById('vl-20').onclick=()=>add(20000);
+    document.getElementById('vl-reset').onclick=reset;
+    setInteg(1);
+  })();
+})();
+</script>
+
+</body>
+</html>

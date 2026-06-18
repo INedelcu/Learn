@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monte Carlo — Tutorial Explainers</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --accent:#2b6cb0; --true:#2f9e64; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:18px; margin:40px 0 6px; color:var(--muted); font-weight:600; letter-spacing:.02em; text-transform:uppercase; font-size:13px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:var(--accent)}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:8px; padding:12px 16px; margin:18px 0; font-size:15px}
+
+  .toc{display:flex; flex-direction:column; gap:12px; margin-top:14px}
+  a.entry{display:flex; gap:16px; align-items:flex-start; padding:15px 18px; border:1px solid var(--line);
+    border-radius:12px; background:var(--card); text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s, transform .05s}
+  a.entry:hover{border-color:var(--accent); box-shadow:0 3px 14px rgba(43,108,176,.10)}
+  a.entry:active{transform:translateY(1px)}
+  .entry .num{font-size:20px; font-weight:700; color:var(--accent); min-width:34px; text-align:right; font-variant-numeric:tabular-nums; padding-top:1px}
+  .entry .body{flex:1}
+  .entry .body h3{margin:0 0 4px; font-size:17px; color:var(--ink)}
+  .entry .body .d{margin:0; font-size:14.5px; color:var(--muted)}
+  .tags{margin-top:9px; display:flex; flex-wrap:wrap; gap:6px}
+  .tag{font-size:12px; background:#fff; border:1px solid var(--line); border-radius:999px; padding:2px 9px; color:var(--muted)}
+  .foot{margin-top:48px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:13.5px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Monte Carlo &amp; Path Tracing — Tutorial Explainers</h1>
+<p class="sub">Interactive companion pages for the C++ Monte Carlo tutorial series.</p>
+
+<p class="lead">Each page below explains one sample from the C++ series — the probability and statistics behind Monte Carlo integration and physically-based path tracing — with the math typeset, the code annotated, and interactive figures you can play with directly in the browser. Read them in order; each builds on the last.</p>
+
+<div class="callout">
+The whole series is, ultimately, about one formula — estimating an integral as the average of (integrand)/(sampling&nbsp;density) — and about understanding and shrinking its error. These explainers develop that story one idea at a time.
+</div>
+
+<!-- ENTRIES: keep in numeric order; add a new <a class="entry"> when a new sample doc is generated -->
+<h2>Foundations</h2>
+<div class="toc">
+
+  <a class="entry" href="01_random_and_estimators.html">
+    <span class="num">01</span>
+    <span class="body">
+      <h3>Random samples, expectation &amp; variance</h3>
+      <p class="d">The vocabulary the whole series leans on: random variables, expectation and variance. Builds up Welford's one-pass algorithm for the running mean and variance, and explains the Bessel-corrected ($\div(n{-}1)$) variance estimate.</p>
+      <span class="tags"><span class="tag">expectation &amp; variance</span><span class="tag">Welford's algorithm</span><span class="tag">Bessel correction</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="02_estimating_pi.html">
+    <span class="num">02</span>
+    <span class="body">
+      <h3>Estimating π &amp; the 1/√N law</h3>
+      <p class="d">The dart-throwing estimate of π, seen as Monte Carlo integration of an indicator. Introduces the central fact of the field — error falls as $1/\sqrt N$ — and shows error$\times\sqrt N$ settling to a constant that only variance reduction can shrink.</p>
+      <span class="tags"><span class="tag">law of large numbers</span><span class="tag">1/√N convergence</span><span class="tag">standard error</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="03_monte_carlo_integration.html">
+    <span class="num">03</span>
+    <span class="body">
+      <h3>The Monte Carlo integration estimator</h3>
+      <p class="d">The general estimator: average $f(X_i)/p(X_i)$ for samples drawn from any density $p$. Derives why it is unbiased (the densities cancel), why the choice of $p$ is the only lever on noise, and how the same formula becomes the rendering equation.</p>
+      <span class="tags"><span class="tag">the f/p estimator</span><span class="tag">unbiasedness</span><span class="tag">rendering equation</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="04_variance_and_clt.html">
+    <span class="num">04</span>
+    <span class="body">
+      <h3>Variance, the CLT &amp; error bars</h3>
+      <p class="d">The estimate is itself a random variable. Proves variance falls as $1/N$, uses the Central Limit Theorem to give it a Normal shape, and builds the standard error and 95% confidence intervals — then verifies the coverage empirically.</p>
+      <span class="tags"><span class="tag">estimator variance</span><span class="tag">central limit theorem</span><span class="tag">confidence intervals</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="05_sampling_distributions.html">
+    <span class="num">05</span>
+    <span class="body">
+      <h3>Sampling a chosen distribution</h3>
+      <p class="d">Two recipes for turning a Uniform[0,1) draw into a sample from any density $p(x)$: inversion (invert the CDF — exact and waste-free, e.g. $\sqrt U$ and the exponential's $-\ln(1-U)/\lambda$) and rejection (throw darts under the curve — universal but accepts only $1/M$).</p>
+      <span class="tags"><span class="tag">inverse-CDF sampling</span><span class="tag">rejection sampling</span><span class="tag">free-flight distance</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="06_importance_sampling.html">
+    <span class="num">06</span>
+    <span class="body">
+      <h3>Importance sampling</h3>
+      <p class="d">The biggest lever on Monte Carlo noise: choose a sampling density $p$ shaped like the integrand so the ratio $f/p$ stays nearly constant. Shows the zero-variance ideal $p\propto f$, a ~9× reduction from one crude linear density, and why the renderer samples the GGX/cosine lobes.</p>
+      <span class="tags"><span class="tag">variance reduction</span><span class="tag">choosing p</span><span class="tag">BRDF lobe sampling</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="07_stratified_sampling.html">
+    <span class="num">07</span>
+    <span class="body">
+      <h3>Stratified sampling</h3>
+      <p class="d">Stop samples from clumping: split the domain into $N$ cells and jitter one sample into each, $x_i=(i+U_i)/N$. The variance becomes a sum of tiny within-cell pieces, so for smooth integrands it falls like $1/N^3$ (error $\propto1/N^{1.5}$) — a different convergence rate, not just a smaller constant. It's the renderer's pixel jitter.</p>
+      <span class="tags"><span class="tag">stratification</span><span class="tag">faster than 1/√N</span><span class="tag">pixel jitter</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="08_hemisphere_sampling.html">
+    <span class="num">08</span>
+    <span class="body">
+      <h3>Hemisphere sampling: uniform vs cosine</h3>
+      <p class="d">Where the series meets the renderer. The reflectance integral carries a $\cos\theta$ factor; sampling directions cosine-weighted ($p=\cos\theta/\pi$, via Malley's disk-lift) cancels it — zero variance for $\int\cos\theta$, and the reason a diffuse bounce weight reduces to plain albedo.</p>
+      <span class="tags"><span class="tag">cosine-weighted</span><span class="tag">Malley's method</span><span class="tag">diffuse bounce</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="09_multiple_importance_sampling.html">
+    <span class="num">09</span>
+    <span class="body">
+      <h3>Multiple Importance Sampling (MIS)</h3>
+      <p class="d">When no single density fits the whole integrand, combine several with the balance heuristic $w_i=p_i/\sum_j p_j$. Each term collapses to the bounded $f/\sum_j p_j$, muzzling the spikes — unbiased, never much worse than the best strategy, ~2000× lower variance here, and zero when the features balance. It's the BRDF-vs-light combination of real path tracers.</p>
+      <span class="tags"><span class="tag">balance heuristic</span><span class="tag">BRDF vs light</span><span class="tag">Veach &amp; Guibas</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="10_russian_roulette.html">
+    <span class="num">10</span>
+    <span class="body">
+      <h3>Russian roulette</h3>
+      <p class="d">Terminate an infinite bounce sum after a random, finite number of steps without bias: continue with probability $q$, divide the weight by $q$ on survival. Fixed truncation is always too dark; roulette stays unbiased for any $q$ (expected length $1/(1-q)$). Choosing $q=\rho$ keeps the weight bounded — the renderer's throughput-driven termination.</p>
+      <span class="tags"><span class="tag">unbiased termination</span><span class="tag">throughput</span><span class="tag">variance vs cost</span></span>
+    </span>
+  </a>
+
+</div>
+
+<p class="foot">Source: the <code>C:\Learn</code> C++ tutorial series. Math rendered with KaTeX; figures are self-contained SVG + JavaScript, no build step. More explainers added as the series progresses.</p>
+
+</div>
+</body>
+</html>

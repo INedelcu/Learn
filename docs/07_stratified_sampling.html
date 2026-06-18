@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 — Stratified sampling — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --plain:#2b6cb0; --strat:#2f9e64; --fn:#7c3aed; --true:#d9a500; --cell:#c2c8d2; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--strat)}
+  .callout.warn{border-left-color:var(--true)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Stratified sampling</h1>
+<p class="sub">07_stratified_sampling.cpp — stop the samples from clumping. Split the domain into equal cells, drop one jittered sample in each, and watch the variance fall far faster than $1/\sqrt N$ — for almost no extra work.</p>
+
+<p class="lead">Plain Monte Carlo scatters samples independently, so by sheer chance they bunch up in some places and leave gaps in others. Those clumps and gaps <em>are</em> the variance. Stratification fixes it almost for free: carve the domain into $N$ equal strata and place exactly one jittered sample inside each. The samples can no longer all pile into one region — and for a smooth integrand the error plummets. This is precisely the jitter a path tracer puts on pixel, lens, time, and light samples.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Replace $N$ independent draws $x_i=U_i$ with one jittered draw per cell, $x_i=(i+U_i)/N$; the estimator’s variance becomes the <em>sum of the within-stratum variances</em>, and since each stratum is only $1/N$ wide the function barely varies across it — so for smooth integrands the variance falls like $1/N^3$ (error $\propto1/N^{1.5}$) instead of $1/N$, a reduction that grows as $N^2$.
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--plain)"></i> plain Monte Carlo (independent)</span>
+  <span><i class="dot" style="background:var(--strat)"></i> stratified (one per cell)</span>
+  <span><i class="swatch" style="border-color:var(--fn)"></i> integrand $e^x$</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> true value $I=e-1$</span>
+</div>
+
+
+<h2>1. The problem: independent samples clump</h2>
+
+<p>Drop $N$ independent uniform samples on $[0,1]$ and look at where they land. Some stretches get three or four; others get none. The empty stretches are regions of the integrand you simply didn’t look at this run, and the crowded ones are wasted, redundant effort — together they are the run-to-run noise. Re-roll the draw below and compare: the <span style="color:var(--plain)">plain</span> row clumps and gaps differently every time, while the <span style="color:var(--strat)">stratified</span> row always keeps one sample per cell, evenly covering the domain.</p>
+
+<figure>
+<svg id="clump" viewBox="0 0 600 250" role="img" aria-label="The integrand with cell dividers, and two rows of samples: plain (clumping) and stratified (one per cell)."></svg>
+<div class="ctl">
+  <button id="cl-roll">Re-roll samples</button>
+  <span class="small">N = 16 cells &nbsp;·&nbsp; this draw — plain error: <b id="cl-ep" style="color:var(--plain)">—</b> &nbsp; stratified error: <b id="cl-es" style="color:var(--strat)">—</b></span>
+</div>
+<figcaption>Figure 1. The same $N=16$ samples, placed two ways, under $e^x$ (with the strata drawn as faint dividers). Plain MC leaves visible gaps and clumps that shift wildly each re-roll; stratification guarantees one jittered sample per cell. Watch the per-draw errors: the stratified one is consistently far smaller.</figcaption>
+</figure>
+
+
+<h2>2. The fix: one jittered sample per stratum</h2>
+
+<p>The whole change is in how the sample positions are generated:</p>
+
+$$\text{plain:}\quad x_i=U_i,\qquad\qquad \text{stratified:}\quad x_i=\frac{i+U_i}{N},\quad i=0,\dots,N-1,$$
+
+<p>with $U_i\sim\mathrm{Uniform}[0,1]$ in both. The stratified formula puts cell $i$ at $[i/N,(i+1)/N)$ and jitters the sample uniformly <em>within</em> that cell. The estimate is the same average in both cases, $\hat I=\frac1N\sum_i f(x_i)$, and — crucially — stratification is still <strong>unbiased</strong>: each cell’s sample is uniform over its cell, so it correctly represents that slice. The jitter (rather than placing the sample at the cell center) is what keeps it unbiased and avoids aliasing.</p>
+
+
+<h2>3. Why it works: variance is the sum of tiny pieces</h2>
+
+<p>Because the cells are disjoint and the samples independent, the variance of the stratified estimate is the <strong>sum of the within-stratum variances</strong>:</p>
+
+$$\operatorname{Var}[\hat I_{\text{strat}}]=\frac1{N^2}\sum_{i=0}^{N-1}\operatorname{Var}\!\big[f(X)\,\big|\,X\in\text{cell }i\big].$$
+
+<p>Here is the leverage. Each stratum spans only $1/N$ of the domain, so a smooth $f$ is nearly <em>linear</em> across it, and the variance of a near-linear function over a cell of width $h=1/N$ is about $(f'h)^2/12$ — it shrinks like $h^2=1/N^2$. Summing $N$ such pieces and dividing by $N^2$:</p>
+
+$$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\! \big(f'(x)\big)^2\,dx\;\sim\;\frac{1}{N^3},$$
+
+<p>versus plain Monte Carlo’s $\operatorname{Var}[\hat I_{\text{plain}}]=\operatorname{Var}[f]/N\sim 1/N$. So the standard error falls like $1/N^{1.5}$ instead of $1/\sqrt N$, and the <em>ratio</em> of variances grows like $N^2$ — the more samples, the bigger the win.</p>
+
+<div class="callout">
+<strong>Intuition.</strong> Plain MC pays for variance that is mostly just the integrand’s overall slope across the whole domain. Stratification removes that big, coarse component for free, leaving only the tiny wiggle <em>inside</em> each cell. The smoother $f$ is, the less is left.
+</div>
+
+
+<h2>4. The payoff: same cost, far less noise</h2>
+
+<p>The file measures it the honest way — run many independent estimates with each method and compare the spread. Below, both methods use $N$ samples per estimate; the histograms are drawn on a shared scale. Both center on the true $I$ (both unbiased), but the stratified distribution collapses to a sliver. Slide $N$ and watch the variance-reduction factor climb roughly as $N^2$.</p>
+
+<figure>
+<svg id="cmp" viewBox="0 0 600 330" role="img" aria-label="Two stacked histograms of estimates, plain wide and stratified a narrow spike, both centered on the true value."></svg>
+<div class="ctl">
+  samples per estimate N = <b id="cm-nval">64</b>
+  <input id="cm-n" type="range" min="4" max="128" value="64" step="4">
+  <button id="cm-200">+200 estimates</button>
+  <button id="cm-2000">+2,000</button>
+  <button id="cm-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>estimates each</span><b id="cm-cnt">0</b></div>
+  <div class="row"><span>std dev — plain</span><b id="cm-sp" style="color:var(--plain)">—</b></div>
+  <div class="row"><span>std dev — stratified</span><b id="cm-ss" style="color:var(--strat)">—</b></div>
+  <div class="row"><span>variance reduction</span><b id="cm-red" class="big" style="color:var(--strat)">—</b></div>
+</div>
+<figcaption>Figure 2. Sampling distributions of the two estimators ($N$ samples each), shared scale set to $\pm4$ plain standard errors. Both sit on $I=e-1$. The stratified estimator is so much tighter it shows up as a spike — and the reduction factor (shown) grows quadratically in $N$.</figcaption>
+</figure>
+
+
+<h2>5. Convergence: faster than 1/√N</h2>
+
+<p>Plot the RMS error against $N$ on log–log axes and the two methods separate by their <em>slope</em>: plain MC falls at slope $-\tfrac12$ (the universal $1/\sqrt N$ from example 02), while stratified falls at slope $\approx-\tfrac32$. That steeper line is the headline — stratification doesn’t just shift the constant (as importance sampling did), it improves the <em>rate</em> for smooth 1-D integrands.</p>
+
+<figure>
+<svg id="conv" viewBox="0 0 600 360" role="img" aria-label="Log-log RMS error versus N for plain and stratified, with reference slopes."></svg>
+<div class="ctl">
+  <button id="cv-run">Run</button>
+  <button id="cv-reset">Reset</button>
+  <span class="small">measured slope — plain: <b id="cv-slp" style="color:var(--plain)">—</b> &nbsp; stratified: <b id="cv-sls" style="color:var(--strat)">—</b></span>
+</div>
+<figcaption>Figure 3. RMS error vs. sample count, log–log (each point is the RMS over many trials). Plain MC tracks the dashed slope-$(-\tfrac12)$ guide; stratified tracks the steeper slope-$(-\tfrac32)$ guide. Different slope = different convergence <em>rate</em>, not just a smaller constant.</figcaption>
+</figure>
+
+
+<h2>6. The catch: the curse of dimensionality</h2>
+
+<p>A full stratified grid in $d$ dimensions needs $N^d$ cells to keep $N$ subdivisions per axis. At $d=2$ that is fine (an image plane of pixels), but light paths are high-dimensional — many bounces, each with 2+ random numbers — and $N^d$ explodes. So renderers do <strong>not</strong> build a full grid. Instead they stratify <em>per dimension</em> (each random dimension gets its own 1-D stratification or a shuffled assignment, as in Latin hypercube sampling, example 29) or switch to <strong>low-discrepancy</strong> sequences that stay well-spread in high dimensions without a grid (examples 11, 16, 42).</p>
+
+<div class="callout warn">
+<strong>Why not just stratify everything?</strong> Because $N^d$ cells means a useful $N$ becomes astronomically expensive past a few dimensions, and most cells would never get a sample. The high-dimensional substitutes keep stratification’s “well-spread” benefit while paying only $O(N)$.
+</div>
+
+
+<h2>7. This is the renderer’s pixel jitter</h2>
+
+<div class="callout">
+<strong>Rendering link.</strong> The image plane <em>is</em> a 2-D stratification: each pixel is a cell, and the path tracer places one jittered sample inside it per frame rather than sampling pixel positions independently. In <code>RayGenerator.raytrace</code>, <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L25" target="_blank" rel="noopener"><code>GenerateCameraRay</code></a> offsets the ray within the pixel by a <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L32" target="_blank" rel="noopener">random sub-pixel jitter</a> — exactly the $x=(i+U)/N$ idea in 2-D, with the pixel index playing the role of the cell $i$. The same jitter applies to lens (depth of field), time (motion blur), and light samples: one well-spread sample per sub-cell beats $N$ independent darts, for free.
+</div>
+
+
+<h2>8. The code</h2>
+
+<p>Two estimators per trial, with a Welford pass (example 01) over the trials to measure each method’s variance:</p>
+
+<pre><code>const int N = 64;             // samples per estimate = number of strata
+for (int t = 0; t &lt; kTrials; ++t) {
+    // plain: N independent uniform draws
+    double sp = 0;
+    for (int i = 0; i &lt; N; ++i) sp += f(rng.NextFloat());
+    double estPlain = sp / N;
+
+    // stratified: one jittered sample inside each of the N cells
+    double ss = 0;
+    for (int i = 0; i &lt; N; ++i) {
+        double x = (i + rng.NextFloat()) / N;   // jittered cell position
+        ss += f(x);
+    }
+    double estStrat = ss / N;
+
+    // Welford over trials → variance of each method's estimates
+    /* accumulate estPlain into (meanPlain,m2Plain); estStrat into (meanStrat,m2Strat) */
+}
+printf("variance reduction factor: %.1fx\n", varPlain / varStrat);</code></pre>
+
+<p>Both means agree with $I\approx1.71828$ (unbiased), but the stratified variance is smaller by a large factor that grows with $N$ — visibly less noise for the same number of samples.</p>
+
+
+<h2>9. Takeaways</h2>
+<ul>
+<li><strong>Clumps and gaps are variance.</strong> Independent samples cover the domain unevenly; stratification forces even coverage with one jittered sample per cell.</li>
+<li><strong>The recipe.</strong> $x_i=(i+U_i)/N$ instead of $x_i=U_i$. Still an average, still unbiased — the jitter keeps it so.</li>
+<li><strong>Variance = sum of within-stratum variances.</strong> Each cell is $1/N$ wide, so for smooth $f$ each piece is tiny; total variance $\sim1/N^3$, error $\sim1/N^{1.5}$.</li>
+<li><strong>It improves the rate, not just the constant.</strong> Slope $-\tfrac32$ vs plain’s $-\tfrac12$; the reduction grows as $N^2$. (Contrast importance sampling, which lowered the constant at the same $-\tfrac12$ rate.)</li>
+<li><strong>Curse of dimensionality.</strong> A full grid needs $N^d$ cells; high-dimensional rendering uses per-dimension stratification (Latin hypercube, ex. 29) or low-discrepancy sequences (ex. 11, 16, 42) instead.</li>
+<li><strong>It’s the renderer’s pixel/lens/time/light jitter</strong> — 2-D stratification of the image plane, essentially free anti-noise.</li>
+</ul>
+
+<p class="small">References — stratified sampling: Owen, <em>Monte Carlo theory, methods and examples</em>, ch. 8; Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.8 (“Stratified Sampling”). Pixel-sample jitter in the renderer: <code>RayGenerator.raytrace</code> (<a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L25" target="_blank" rel="noopener">GenerateCameraRay</a>). Low-discrepancy and Latin-hypercube alternatives appear in later examples.</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const E=Math.E, I=E-1;
+  const VAR_PLAIN=(E*E-1)/2 - I*I;     // per-sample variance of f=e^x  ≈ 0.24204
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // ===================================================================
+  // Figure 1 — clumping visualizer
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('clump');
+    const N=16, X0=46,X1=566;
+    const CY0=24,CY1=150, FMAX=2.9;          // curve panel
+    const PR=190, SR=224;                    // plain row y, stratified row y
+    const xm=x=>X0+x*(X1-X0);
+    const fy=v=>CY1-clamp(v,0,FMAX)/FMAX*(CY1-CY0);
+    function draw(){
+      svg.textContent='';
+      // strata dividers
+      for(let i=0;i<=N;i++){const x=xm(i/N); svg.appendChild(svgEl('line',{x1:x,y1:CY0,x2:x,y2:CY1,stroke:'var(--cell)','stroke-width':i%1?1:1,'stroke-dasharray':'2 3'}));}
+      // curve e^x
+      const cv=[]; for(let i=0;i<=120;i++){const x=i/120; cv.push([xm(x),fy(Math.exp(x))]);}
+      svg.appendChild(polyline(cv,'var(--fn)',2.2));
+      svg.appendChild(txt(xm(0.5),fy(Math.exp(0.5))-8,'eˣ',{'font-size':12,fill:'var(--fn)'}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:CY1,x2:X1,y2:CY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      // draw samples
+      const plain=[], strat=[];
+      for(let i=0;i<N;i++){ plain.push(Math.random()); strat.push((i+Math.random())/N); }
+      // plain row
+      svg.appendChild(txt(X0-4,PR+4,'plain',{'font-size':12,fill:'var(--plain)','text-anchor':'end'}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:PR,x2:X1,y2:PR,stroke:'#e6e8ee','stroke-width':1}));
+      plain.forEach(x=>svg.appendChild(svgEl('line',{x1:xm(x),y1:PR-9,x2:xm(x),y2:PR+9,stroke:'var(--plain)','stroke-width':1.6,'stroke-opacity':0.75})));
+      // stratified row (with cell ticks)
+      svg.appendChild(txt(X0-4,SR+4,'strat.',{'font-size':12,fill:'var(--strat)','text-anchor':'end'}));
+      for(let i=0;i<=N;i++){const x=xm(i/N); svg.appendChild(svgEl('line',{x1:x,y1:SR-10,x2:x,y2:SR+10,stroke:'var(--cell)','stroke-width':1}));}
+      strat.forEach(x=>svg.appendChild(svgEl('line',{x1:xm(x),y1:SR-9,x2:xm(x),y2:SR+9,stroke:'var(--strat)','stroke-width':1.8})));
+      // per-draw errors
+      const ep=Math.abs(plain.reduce((s,x)=>s+Math.exp(x),0)/N - I);
+      const es=Math.abs(strat.reduce((s,x)=>s+Math.exp(x),0)/N - I);
+      document.getElementById('cl-ep').textContent=ep.toFixed(4);
+      document.getElementById('cl-es').textContent=es.toFixed(4);
+    }
+    document.getElementById('cl-roll').onclick=draw;
+    draw();
+  })();
+
+  // ===================================================================
+  // Figure 2 — variance histograms (plain vs stratified)
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('cmp');
+    const X0=54,X1=566, NB=61;
+    const PY0=24,PY1=146, SY0=168,SY1=290;
+    let N=64, LO,HI,bw, cp=new Array(NB).fill(0), cs=new Array(NB).fill(0), total=0;
+    let mp=0,m2p=0, ms=0,m2s=0;
+    const xm=v=>X0+(clamp(v,LO,HI)-LO)/(HI-LO)*(X1-X0);
+    function estPlain(){let s=0;for(let i=0;i<N;i++)s+=Math.exp(Math.random());return s/N;}
+    function estStrat(){let s=0;for(let i=0;i<N;i++)s+=Math.exp((i+Math.random())/N);return s/N;}
+    function setRange(){const SEp=Math.sqrt(VAR_PLAIN/N); LO=I-4*SEp; HI=I+4*SEp; bw=(HI-LO)/NB;}
+    function panel(y0,y1,counts,color,label){
+      let maxC=0; for(const c of counts)maxC=Math.max(maxC,c); const CMAX=Math.max(maxC,1)*1.12;
+      const ym=c=>y1-clamp(c,0,CMAX)/CMAX*(y1-y0);
+      svg.appendChild(svgEl('line',{x1:X0,y1:y1,x2:X1,y2:y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const x0=X0+(b/NB)*(X1-X0),w=(X1-X0)/NB;
+        svg.appendChild(svgEl('rect',{x:x0+0.4,y:ym(counts[b]),width:Math.max(0.6,w-0.8),height:y1-ym(counts[b]),fill:color,'fill-opacity':0.30,stroke:color,'stroke-width':0.5}));}
+      svg.appendChild(svgEl('line',{x1:xm(I),y1:y0,x2:xm(I),y2:y1,stroke:'var(--true)','stroke-width':1.8}));
+      svg.appendChild(txt(X0+6,y0+13,label,{'font-size':12,fill:color,'font-weight':600}));
+    }
+    function draw(){
+      svg.textContent='';
+      svg.appendChild(txt(xm(I),15,'I = e−1',{'font-size':11,fill:'var(--true)','text-anchor':'middle'}));
+      panel(PY0,PY1,cp,'var(--plain)','plain MC');
+      panel(SY0,SY1,cs,'var(--strat)','stratified');
+      svg.appendChild(txt((X0+X1)/2,SY1+22,'estimate value  (shared scale, ±4 plain SE)',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      const sp=total>1?Math.sqrt(m2p/(total-1)):0, ss=total>1?Math.sqrt(m2s/(total-1)):0;
+      document.getElementById('cm-cnt').textContent=total.toLocaleString();
+      document.getElementById('cm-sp').textContent=total?sp.toFixed(5):'—';
+      document.getElementById('cm-ss').textContent=total?ss.toExponential(2):'—';
+      document.getElementById('cm-red').textContent=(total>1&&ss>0)?Math.round((sp*sp)/(ss*ss)).toLocaleString()+'×':'—';
+    }
+    function add(M){
+      for(let k=0;k<M;k++){const ep=estPlain(), es=estStrat(); total++;
+        let b=Math.floor((ep-LO)/bw); if(b>=0&&b<NB)cp[b]++;
+        b=Math.floor((es-LO)/bw); if(b>=0&&b<NB)cs[b]++;
+        let d=ep-mp; mp+=d/total; m2p+=d*(ep-mp);
+        d=es-ms; ms+=d/total; m2s+=d*(es-ms);
+      }
+      draw();
+    }
+    function reset(){setRange();cp=new Array(NB).fill(0);cs=new Array(NB).fill(0);total=0;mp=0;m2p=0;ms=0;m2s=0;draw();}
+    document.getElementById('cm-200').onclick=()=>add(200);
+    document.getElementById('cm-2000').onclick=()=>add(2000);
+    document.getElementById('cm-reset').onclick=reset;
+    const sl=document.getElementById('cm-n');
+    sl.addEventListener('input',()=>{N=+sl.value;document.getElementById('cm-nval').textContent=N;reset();});
+    setRange(); add(2000);
+  })();
+
+  // ===================================================================
+  // Figure 3 — log-log RMS-error convergence
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('conv');
+    const X0=64,X1=560,Y0=28,Y1=300, EX0=2,EX1=9, EY0=-5,EY1=0;  // x: 2^2..2^9, y: 10^-5..10^0
+    const xm=N=>X0+(Math.log2(N)-EX0)/(EX1-EX0)*(X1-X0);
+    const ym=e=>Y1-(Math.log10(clamp(e,1e-5,1))-EY0)/(EY1-EY0)*(Y1-Y0);
+    function backdrop(){
+      svg.textContent='';
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let e=EX0;e<=EX1;e++){const x=xm(Math.pow(2,e));svg.appendChild(svgEl('line',{x1:x,y1:Y0,x2:x,y2:Y1,stroke:'#eef0f4'}));svg.appendChild(txt(x,Y1+16,(Math.pow(2,e)).toString(),{'font-size':10,fill:'#8a8f9c','text-anchor':'middle'}));}
+      for(let e=EY0;e<=EY1;e++){const y=ym(Math.pow(10,e));svg.appendChild(svgEl('line',{x1:X0,y1:y,x2:X1,y2:y,stroke:'#eef0f4'}));svg.appendChild(txt(X0-6,y+4,'10^'+e,{'font-size':10,fill:'#8a8f9c','text-anchor':'end'}));}
+      svg.appendChild(txt((X0+X1)/2,Y1+38,'samples per estimate N  (log₂ scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle'}));
+      svg.appendChild(txt(16,(Y0+Y1)/2,'RMS error  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle',transform:`rotate(-90 16 ${(Y0+Y1)/2})`}));
+      // reference slopes anchored at N=4
+      const refP=N=>0.246/Math.sqrt(N/4);          // slope -1/2
+      const refS=N=>0.064/Math.pow(N/4,1.5);        // slope -3/2
+      svg.appendChild(polyline([[xm(4),ym(refP(4))],[xm(512),ym(refP(512))]],'#9aa0ad',1.6,'6 4'));
+      svg.appendChild(polyline([[xm(4),ym(refS(4))],[xm(512),ym(refS(512))]],'#9aa0ad',1.6,'6 4'));
+      svg.appendChild(txt(xm(64),ym(refP(64))+16,'slope −½',{'font-size':11,fill:'#8a8f9c'}));
+      svg.appendChild(txt(xm(40),ym(refS(40))-8,'slope −³⁄₂',{'font-size':11,fill:'#8a8f9c'}));
+      // legend
+      svg.appendChild(svgEl('line',{x1:X0+20,y1:Y0+12,x2:X0+46,y2:Y0+12,stroke:'var(--plain)','stroke-width':3}));
+      svg.appendChild(txt(X0+52,Y0+16,'plain MC',{'font-size':12,fill:'#5b6472'}));
+      svg.appendChild(svgEl('line',{x1:X0+140,y1:Y0+12,x2:X0+166,y2:Y0+12,stroke:'var(--strat)','stroke-width':3}));
+      svg.appendChild(txt(X0+172,Y0+16,'stratified',{'font-size':12,fill:'#5b6472'}));
+    }
+    function rms(estFn,N,T){let s=0;for(let t=0;t<T;t++){const e=estFn(N)-I;s+=e*e;}return Math.sqrt(s/T);}
+    function estPlain(N){let s=0;for(let i=0;i<N;i++)s+=Math.exp(Math.random());return s/N;}
+    function estStrat(N){let s=0;for(let i=0;i<N;i++)s+=Math.exp((i+Math.random())/N);return s/N;}
+    function fitSlope(pts){ // least squares slope in log2(N) vs log10(err) -> convert to per-decade? report d log err / d log N
+      const xs=pts.map(p=>Math.log10(p[0])), ys=pts.map(p=>Math.log10(p[1]));
+      const n=xs.length, mx=xs.reduce((a,b)=>a+b)/n, my=ys.reduce((a,b)=>a+b)/n;
+      let num=0,den=0; for(let i=0;i<n;i++){num+=(xs[i]-mx)*(ys[i]-my);den+=(xs[i]-mx)**2;}
+      return num/den;
+    }
+    function run(){
+      backdrop();
+      const Ns=[4,8,16,32,64,128,256,512], T=600;
+      const pP=[],pS=[];
+      Ns.forEach(N=>{const ep=rms(estPlain,N,T), es=rms(estStrat,N,T); pP.push([N,ep]); pS.push([N,es]);});
+      svg.appendChild(polyline(pP.map(p=>[xm(p[0]),ym(p[1])]),'var(--plain)',2.4));
+      svg.appendChild(polyline(pS.map(p=>[xm(p[0]),ym(p[1])]),'var(--strat)',2.4));
+      pP.forEach(p=>svg.appendChild(svgEl('circle',{cx:xm(p[0]),cy:ym(p[1]),r:2.6,fill:'var(--plain)'})));
+      pS.forEach(p=>svg.appendChild(svgEl('circle',{cx:xm(p[0]),cy:ym(p[1]),r:2.6,fill:'var(--strat)'})));
+      document.getElementById('cv-slp').textContent=fitSlope(pP).toFixed(2);
+      document.getElementById('cv-sls').textContent=fitSlope(pS).toFixed(2);
+    }
+    document.getElementById('cv-run').onclick=run;
+    document.getElementById('cv-reset').onclick=()=>{backdrop();document.getElementById('cv-slp').textContent='—';document.getElementById('cv-sls').textContent='—';};
+    backdrop();
+  })();
+})();
+</script>
+
+</body>
+</html>

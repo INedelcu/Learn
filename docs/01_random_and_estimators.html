@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 — Random samples, expectation &amp; variance — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --est:#2b6cb0; --true:#2f9e64; --naive:#e53e3e; --bessel:#7c3aed; --geo:#8a8f9c;
+    --gold:#d9a500; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--true)}
+  .callout.warn{border-left-color:var(--naive)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  .bars{margin-top:14px}
+  .bar{display:flex; align-items:center; gap:10px; margin:6px 0; font-size:13.5px}
+  .bar .name{width:190px; color:var(--muted)}
+  .bar .track{flex:1; height:18px; background:#edeef2; border-radius:4px; overflow:hidden; position:relative}
+  .bar .fill{height:100%; width:0%}
+  .bar .val{width:70px; text-align:right; font-variant-numeric:tabular-nums}
+  input[type=range]{width:230px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button:active{transform:translateY(1px)}
+  .pill{display:inline-block; padding:2px 10px; border-radius:999px; font-size:13px; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Random samples, expectation &amp; variance</h1>
+<p class="sub">01_random_and_estimators.cpp — the three words the whole Monte Carlo series is built on, plus the one-pass trick used to measure a render's error as it converges.</p>
+
+<p class="lead">This first example does almost no graphics. It draws uniform random numbers, checks with a histogram that they really are uniform, and then <em>watches</em> two estimates settle down as more samples arrive: the <strong>mean</strong> (homing in on $0.5$) and the <strong>variance</strong> (homing in on $\tfrac1{12}\approx0.0833$). Two ideas do the heavy lifting and are the focus of this page: <strong>Welford's online algorithm</strong> for computing those two numbers in a single stable pass, and the <strong>Bessel-corrected</strong> (divide-by-$n{-}1$) variance estimate.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Keep a running mean $\bar x$ and a running &ldquo;sum of squared deviations&rdquo; $M_2$; update them per sample with small differences (Welford) instead of accumulating $\sum x$ and $\sum x^2$; then the unbiased variance is $M_2/(n-1)$ — the $n-1$ (Bessel's correction) compensates for the fact that the deviations are measured from the sample's own mean rather than the true mean.
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--est)"></i> sample estimate (what we compute)</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> true value (what it converges to)</span>
+  <span><i class="swatch" style="border-color:var(--naive)"></i> biased / numerically bad</span>
+  <span><i class="swatch" style="border-color:var(--bessel)"></i> Bessel-corrected, $\div(n{-}1)$</span>
+</div>
+
+
+<h2>1. Three words: random variable, expectation, variance</h2>
+
+<p>A <strong>random variable</strong> $X$ is just &ldquo;a number produced by a random process.&rdquo; In this example $X$ is a uniform draw in $[0,1)$, written $X\sim\mathrm{Uniform}[0,1)$. Two summary numbers describe it.</p>
+
+<p>The <strong>expectation</strong> (or mean) $\mathbb E[X]$ is the long-run average value. For a continuous variable it is an integral of value times probability density:</p>
+
+$$\mathbb E[X]=\int_0^1 x\,\underbrace{1}_{\text{density}}\,dx=\Big[\tfrac{x^2}{2}\Big]_0^1=\tfrac12 .$$
+
+<p>The <strong>variance</strong> $\operatorname{Var}[X]=\mathbb E\big[(X-\mathbb E[X])^2\big]$ measures the average squared distance from the mean — how &ldquo;spread out&rdquo; $X$ is:</p>
+
+$$\operatorname{Var}[X]=\int_0^1\Big(x-\tfrac12\Big)^2 dx=\frac1{12}\approx 0.08333 .$$
+
+<p>The square root of the variance is the <strong>standard deviation</strong> $\sigma=\sqrt{1/12}\approx0.289$, in the same units as $X$ itself.</p>
+
+<figure>
+<svg viewBox="0 0 680 230" role="img" aria-label="The Uniform[0,1] density: a unit-height rectangle with its mean at one half and the standard-deviation spread marked.">
+  <!-- axes -->
+  <line x1="80" y1="180" x2="600" y2="180" stroke="#9aa0ad" stroke-width="1.5"/>
+  <line x1="80" y1="180" x2="80" y2="40" stroke="#9aa0ad" stroke-width="1.5"/>
+  <!-- density rectangle: x in [0,1] maps to [120,520], height 1 maps to y=70 -->
+  <rect x="120" y="70" width="400" height="110" fill="#dbe7f3" stroke="var(--est)" stroke-width="1.6"/>
+  <text x="320" y="60" text-anchor="middle" font-size="13.5" fill="var(--est)">density = 1 on [0,1)</text>
+  <!-- mean line -->
+  <line x1="320" y1="40" x2="320" y2="180" stroke="var(--true)" stroke-width="2" stroke-dasharray="5 4"/>
+  <text x="326" y="52" font-size="13.5" fill="var(--true)" font-weight="600">E[X] = 1/2</text>
+  <!-- std dev bracket: sigma=0.289 -> +/- 0.289 around 0.5 => x in [0.211,0.789] => px 120+0.211*400=204.4 .. 120+0.789*400=435.6 -->
+  <line x1="204" y1="150" x2="436" y2="150" stroke="var(--gold)" stroke-width="2"/>
+  <line x1="204" y1="144" x2="204" y2="156" stroke="var(--gold)" stroke-width="2"/>
+  <line x1="436" y1="144" x2="436" y2="156" stroke="var(--gold)" stroke-width="2"/>
+  <text x="320" y="140" text-anchor="middle" font-size="12.5" fill="#9a7600">±σ ≈ ±0.289</text>
+  <!-- x ticks -->
+  <text x="120" y="198" text-anchor="middle" font-size="12" fill="#8a8f9c">0</text>
+  <text x="520" y="198" text-anchor="middle" font-size="12" fill="#8a8f9c">1</text>
+  <text x="600" y="198" text-anchor="middle" font-size="12" fill="#8a8f9c">x</text>
+</svg>
+<figcaption>Figure 1. Uniform[0,1) as a probability density: a flat unit-height block. The mean sits at the center of mass, $1/2$; the variance $1/12$ is the average squared horizontal distance from that center, summarized by the standard-deviation span $\pm\sigma\approx\pm0.289$.</figcaption>
+</figure>
+
+<div class="callout">
+<strong>Why we care.</strong> The entire point of Monte Carlo is that for real problems we <em>cannot</em> do the integral above by hand. So instead of computing $\mathbb E[X]$ we <em>estimate</em> it by averaging samples, and we use the variance to say how trustworthy that estimate is. This file is the toy case where we happen to know both true answers ($0.5$ and $1/12$), so we can watch the estimates approach them and trust the machinery before turning it loose on integrals we can't solve.
+</div>
+
+
+<h2>2. Seeing that the draws are uniform — the histogram</h2>
+
+<p>Before trusting an estimator, sanity-check the source. Drop $100{,}000$ draws into ten equal-width bins. If the generator is genuinely uniform, each bin should hold about $10\%$ of the samples. The deviations from $10\%$ shrink as you add more samples — that is the Law of Large Numbers acting on each bin at once.</p>
+
+<figure>
+<svg id="hist" viewBox="0 0 600 300" role="img" aria-label="Interactive histogram of uniform draws across ten bins."></svg>
+<div class="ctl">
+  <button id="h-add1">+1,000 draws</button>
+  <button id="h-add100">+100,000 draws</button>
+  <button id="h-reset">Reset</button>
+  <span class="small">total: <b id="h-total" style="font-variant-numeric:tabular-nums">0</b> &nbsp;·&nbsp; largest bin error: <b id="h-err" style="font-variant-numeric:tabular-nums">—</b></span>
+</div>
+<figcaption>Figure 2. Each bar is the fraction of draws landing in that tenth of the interval; the dashed line is the ideal $10\%$. With a thousand draws the bars are visibly ragged; push to hundreds of thousands and they flatten onto the line. <span class="small">(Uses the browser's PRNG — the C++ file uses PCG32, but the convergence behaviour is the same.)</span></figcaption>
+</figure>
+
+
+<h2>3. We can't average by hand either — the sample mean estimator</h2>
+
+<p>The estimator for the mean is the obvious one, the <strong>sample mean</strong> of $n$ draws:</p>
+
+$$\bar x_n=\frac1n\sum_{i=1}^{n}x_i .$$
+
+<p>The <strong>Law of Large Numbers</strong> guarantees $\bar x_n\to\mathbb E[X]=0.5$ as $n\to\infty$. The example also estimates the variance the same way — by averaging squared deviations — and watches <em>both</em> estimates converge. The decade-by-decade table the program prints looks like this (your exact digits depend on the seed):</p>
+
+<table>
+<thead><tr><th class="num">samples $n$</th><th class="num">mean estimate</th><th class="num">variance estimate</th></tr></thead>
+<tbody>
+<tr><td class="num">10</td><td class="num">0.448…</td><td class="num">0.094…</td></tr>
+<tr><td class="num">1,000</td><td class="num">0.503…</td><td class="num">0.082…</td></tr>
+<tr><td class="num">100,000</td><td class="num">0.4998…</td><td class="num">0.08340…</td></tr>
+<tr><td class="num">10,000,000</td><td class="num">0.49997…</td><td class="num">0.083339…</td></tr>
+<tr><td class="num" style="color:var(--true)">true</td><td class="num" style="color:var(--true)">0.50000</td><td class="num" style="color:var(--true)">0.083333…</td></tr>
+</tbody>
+</table>
+
+<p>Watch it happen live. The x-axis is logarithmic, so each step right is a tenfold increase in samples — and notice it takes roughly $10\times$ the samples to win each additional correct digit. That painfully slow $\propto1/\sqrt n$ rate is the headline of examples 02 and 04.</p>
+
+<figure>
+<svg id="conv" viewBox="0 0 600 340" role="img" aria-label="Running mean and variance estimates converging toward their true values as the sample count grows."></svg>
+<div class="ctl">
+  <button id="c-run">Run</button>
+  <button id="c-reset">Reset</button>
+  <span class="small">n = <b id="c-n" style="font-variant-numeric:tabular-nums">0</b> &nbsp;·&nbsp; mean = <b id="c-mean" style="font-variant-numeric:tabular-nums">—</b> &nbsp;·&nbsp; variance = <b id="c-var" style="font-variant-numeric:tabular-nums">—</b></span>
+</div>
+<figcaption>Figure 3. The running mean (blue) and running variance (purple), each plotted against $n$ on a log axis, snapping toward their true values (green dashed lines at $0.5$ and $0.0833$). Early on both wander; both tighten as $n$ grows.</figcaption>
+</figure>
+
+
+<h2>4. The numerically dangerous way to get the variance</h2>
+
+<p>The textbook formula expands the square and is tempting because it needs only two running sums, $\sum x_i$ and $\sum x_i^2$:</p>
+
+$$\operatorname{Var}\approx\frac1n\sum_{i=1}^n x_i^2-\left(\frac1n\sum_{i=1}^n x_i\right)^{\!2}=\overline{x^2}-\bar x^{\,2}.$$
+
+<p>Algebraically fine. Numerically a trap: it computes the variance as the <em>difference of two large, nearly equal numbers</em>. When the data sit far from zero — imagine samples clustered around $10^6$ with a true spread of order $1$ — both $\overline{x^2}$ and $\bar x^{\,2}$ are around $10^{12}$, and subtracting them in floating point throws away almost all the significant digits. This is <strong>catastrophic cancellation</strong>; the result can come out as garbage or even negative.</p>
+
+<div class="callout warn">
+<strong>A concrete disaster.</strong> Take three values $\{10^8,\ 10^8+1,\ 10^8+2\}$. The true variance is exactly $\tfrac23\approx0.667$. In <code>float</code>, $\overline{x^2}$ and $\bar x^{\,2}$ are both $\approx10^{16}$ but only carry ~7 significant digits, so their difference — which lives in the 9th digit — is pure rounding noise. The &ldquo;sum of squares minus square of sum&rdquo; formula can return $0$, or a negative number. Welford, below, returns the right answer because it never forms those huge intermediates.
+</div>
+
+
+<h2>5. Welford's online algorithm — the stable one-pass fix</h2>
+
+<p>Welford keeps two running quantities and updates them with each new sample $x_n$ using only <em>small differences from the current mean</em>. The running mean update comes straight from algebra:</p>
+
+$$\bar x_n=\frac1n\sum_{i=1}^n x_i=\frac{(n-1)\,\bar x_{n-1}+x_n}{n}=\bar x_{n-1}+\frac{x_n-\bar x_{n-1}}{n}.$$
+
+<p>So defining the deviation-from-the-old-mean $\delta=x_n-\bar x_{n-1}$, the mean inches over by $\delta/n$. The second quantity is $M_2=\sum_{i=1}^n (x_i-\bar x_n)^2$, the sum of squared deviations, and it has its own exact recurrence:</p>
+
+$$M_{2,n}=M_{2,n-1}+(x_n-\bar x_{n-1})(x_n-\bar x_n)=M_{2,n-1}+\delta\,(x_n-\bar x_n).$$
+
+<p>The subtle part — and the line the source flags with &ldquo;<em>uses the updated mean — this is the trick</em>&rdquo; — is that the two factors use <strong>different</strong> means: the first deviation is from the <em>old</em> mean $\bar x_{n-1}$, the second from the <em>new</em> mean $\bar x_n$. That product is exactly what makes the recurrence telescope to the true $\sum(x_i-\bar x_n)^2$ without ever storing the samples or a giant sum of squares.</p>
+
+<pre><code>double mean = 0.0, m2 = 0.0;
+long long n = 0;
+for (long long i = 0; i &lt; kTotal; ++i) {
+    double x = rng.NextFloat();
+    ++n;
+    double delta = x - mean;     // δ = x − mean_old
+    mean += delta / n;           // mean_new = mean_old + δ/n
+    m2   += delta * (x - mean);  // δ × (x − mean_new)   ← updated mean here
+}
+double variance = m2 / (n - 1); // Bessel-corrected (see §6)</code></pre>
+
+<p>Because every term added to <code>mean</code> and <code>m2</code> is a <em>small</em> deviation rather than a value of order $x^2$, there are no huge nearly-equal numbers to subtract — the cancellation that wrecked §4 never happens. As a bonus it is genuinely <strong>online</strong>: you get a valid mean and variance after every sample without a second pass, which is exactly how a renderer tracks the error of an image while samples stream in.</p>
+
+<p>Step through it on six draws and watch <code>mean</code> and <code>m2</code> build up. The variance column is $m2/(n-1)$ — undefined at $n=1$ because you cannot measure spread from a single point.</p>
+
+<figure>
+<div class="panel" style="grid-template-columns:1fr; gap:0">
+  <table id="w-table" style="margin:0">
+    <thead><tr>
+      <th class="num">$n$</th><th class="num">$x_n$</th>
+      <th class="num">$\delta=x_n-\bar x_{n-1}$</th>
+      <th class="num">mean $\bar x_n$</th>
+      <th class="num">$x_n-\bar x_n$</th>
+      <th class="num">$M_2$</th>
+      <th class="num">var $=M_2/(n{-}1)$</th>
+    </tr></thead>
+    <tbody id="w-body"></tbody>
+  </table>
+</div>
+<div class="ctl">
+  <button id="w-step">Add next sample</button>
+  <button id="w-reset">Reset</button>
+  <span class="small">running mean: <b id="w-mean" style="font-variant-numeric:tabular-nums">—</b> &nbsp;·&nbsp; running M₂: <b id="w-m2" style="font-variant-numeric:tabular-nums">—</b></span>
+</div>
+<figcaption>Figure 4. Welford's update applied to a fixed list of draws. Each row is one iteration of the loop above: form $\delta$ from the <em>old</em> mean, slide the mean by $\delta/n$, then grow $M_2$ by $\delta$ times the deviation from the <em>new</em> mean.</figcaption>
+</figure>
+
+
+<h2>6. Bessel's correction — why divide by $n-1$, not $n$</h2>
+
+<p>You might expect the variance estimate to be $M_2/n$ — after all, variance is the <em>average</em> squared deviation. But dividing by $n$ produces an estimate that is, on average, <strong>too small</strong>. The fix is to divide by $n-1$ instead; this is <strong>Bessel's correction</strong>, and the result is the <strong>unbiased</strong> sample variance, usually written $s^2$:</p>
+
+$$s^2=\frac{1}{n-1}\sum_{i=1}^n (x_i-\bar x_n)^2=\frac{M_2}{n-1}.$$
+
+<p>Here is the intuition. We measure each deviation from the <strong>sample</strong> mean $\bar x_n$, not the true mean $\mu$ — because $\mu$ is exactly the unknown we are estimating. But $\bar x_n$ is the one number that <em>minimizes</em> $\sum_i (x_i-c)^2$ over all choices of $c$. The sample mean is fitted to <em>these very samples</em>, so deviations measured from it are systematically a little smaller than deviations from the true $\mu$ would have been. The sample always looks slightly tighter than the population really is.</p>
+
+<div class="callout">
+<strong>The exact size of the bias.</strong> One can show
+$\;\mathbb E\!\left[\tfrac1n\sum_i (x_i-\bar x_n)^2\right]=\dfrac{n-1}{n}\,\sigma^2.$
+So the divide-by-$n$ estimate undershoots the true variance $\sigma^2$ by the factor $\tfrac{n-1}{n}$. Dividing by $n-1$ instead of $n$ cancels that factor exactly, giving $\mathbb E[s^2]=\sigma^2$. A common way to phrase it: estimating the mean from the data &ldquo;uses up&rdquo; one <em>degree of freedom</em>, leaving $n-1$ independent deviations.
+</div>
+
+<p>The correction matters most when $n$ is small. At $n=2$ the divide-by-$n$ estimate is too low by half; by $n=1000$ the factor is $0.999$ and nobody cares. Slide $n$ below and watch the divide-by-$n$ estimate (red) sit consistently under the true line while the Bessel-corrected one (purple) lands on it. Each bar is the <em>average</em> over thousands of independent samples, so what you are seeing is the bias, not random noise.</p>
+
+<figure>
+<div class="ctl">
+  sample size <b>n</b> = <span id="b-nval" style="font-variant-numeric:tabular-nums">2</span>
+  <input id="b-n" type="range" min="2" max="20" value="2" step="1">
+  <span class="small">predicted divide-by-n factor $\tfrac{n-1}{n}$ = <b id="b-factor" style="font-variant-numeric:tabular-nums">0.500</b></span>
+</div>
+<div class="bars">
+  <div class="bar"><span class="name">true variance $\sigma^2=1/12$</span><span class="track"><span id="bb-true" class="fill" style="background:var(--true)"></span></span><span id="bv-true" class="val">—</span></div>
+  <div class="bar"><span class="name">estimate $\div n$ (biased low)</span><span class="track"><span id="bb-naive" class="fill" style="background:var(--naive)"></span></span><span id="bv-naive" class="val">—</span></div>
+  <div class="bar"><span class="name">estimate $\div(n{-}1)$ (Bessel)</span><span class="track"><span id="bb-bessel" class="fill" style="background:var(--bessel)"></span></span><span id="bv-bessel" class="val">—</span></div>
+</div>
+<figcaption>Figure 5. Averaging the two variance estimators over many independent samples of size $n$. The $\div n$ estimator (red) is reliably below the true value (green) by the factor $\tfrac{n-1}{n}$; the $\div(n-1)$ estimator (purple) is unbiased and sits on the line. The gap is large for small $n$ and vanishes as $n$ grows.</figcaption>
+</figure>
+
+<div class="callout key">
+<strong>When do you use which?</strong> Use $\div(n-1)$ when you have a <em>sample</em> and want to estimate the variance of the population it came from — which is the usual situation, and what this example does. The plain $\div n$ ("population variance") is correct only when you genuinely have the whole population, or the true mean is known and used in place of $\bar x$. In Monte Carlo rendering we always have a sample, so $\div(n-1)$ is the right default.
+</div>
+
+
+<h2>7. The program, end to end</h2>
+
+<p>Stripped to its spine, the file is: a histogram pass to verify uniformity, then a Welford pass that reports the running mean and Bessel-corrected variance at each decade.</p>
+
+<pre><code>Rng rng(/*sequence=*/1);
+
+// (1) histogram: 100k draws into 10 bins — each should hold ~10%
+int hist[10] = {0};
+for (int i = 0; i &lt; 100000; ++i)
+    hist[(int)(rng.NextFloat() * 10)]++;
+
+// (2) Welford: running mean + M2 over 10 million draws
+double mean = 0.0, m2 = 0.0;
+long long n = 0, nextReport = 10;
+for (long long i = 0; i &lt; 10000000; ++i) {
+    double x = rng.NextFloat();
+    ++n;
+    double delta = x - mean;
+    mean += delta / n;
+    m2   += delta * (x - mean);
+    if (n == nextReport) {                 // print at 10, 100, 1000, ...
+        double variance = m2 / (n - 1);    // Bessel-corrected
+        printf("%12lld %14.8f %14.8f\n", n, mean, variance);
+        nextReport *= 10;
+    }
+}</code></pre>
+
+<p>The mean homes in on $0.5$ and the variance on $0.08333$, each extra factor of ten in samples buying roughly one more correct digit. That $\sqrt n$ relationship between sample count and accuracy is the thread picked up next.</p>
+
+
+<h2>8. Takeaways</h2>
+<ul>
+<li><strong>Expectation and variance</strong> are the two numbers that summarize a random variable: where it sits and how far it spreads. For $\mathrm{Uniform}[0,1)$ they are $1/2$ and $1/12$.</li>
+<li><strong>Monte Carlo estimates the expectation by averaging samples;</strong> the Law of Large Numbers says the sample mean converges to the truth.</li>
+<li><strong>Welford's algorithm</strong> computes the running mean and variance in one pass with small-difference updates — numerically stable where the naive &ldquo;$\overline{x^2}-\bar x^2$&rdquo; formula suffers catastrophic cancellation, and online so the error is available at every sample.</li>
+<li><strong>The $\div(n-1)$ Bessel correction</strong> removes the downward bias that arises from measuring deviations against the sample's own mean; it is the right default for estimating a population's variance from a sample.</li>
+<li><strong>Convergence is slow</strong> — about one extra digit per $10\times$ samples ($\propto1/\sqrt n$) — which is why the rest of the series is largely about variance <em>reduction</em>.</li>
+</ul>
+
+<p class="small">References — B. P. Welford, <em>Note on a Method for Calculating Corrected Sums of Squares and Products</em>, Technometrics 4(3), 1962. · D. E. Knuth, <em>The Art of Computer Programming</em>, Vol. 2, §4.2.2 (Welford's recurrence). · M. E. O'Neill, <em>PCG: A Family of Simple Fast Space-Efficient Statistically Good Algorithms for Random Number Generation</em>, 2014 (the generator in <code>mc_random.h</code>).</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const TRUE_VAR = 1/12;
+
+  // ---------- shared tiny plotter ----------
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.4,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // ===================================================================
+  // Figure 2 — interactive histogram
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('hist');
+    const NB=10, X0=50,X1=560,Y0=30,Y1=255, FMAX=0.16;
+    const bw=(X1-X0)/NB;
+    let counts=new Array(NB).fill(0), total=0;
+    const ym=f=>Y1-clamp(f,0,FMAX)/FMAX*(Y1-Y0);
+
+    function draw(){
+      svg.textContent='';
+      // axes
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      // 10% target line
+      svg.appendChild(svgEl('line',{x1:X0,y1:ym(0.1),x2:X1,y2:ym(0.1),stroke:'var(--true)','stroke-width':1.4,'stroke-dasharray':'5 4'}));
+      svg.appendChild(txt(X1-2,ym(0.1)-6,'ideal 10%',{'font-size':11.5,fill:'var(--true)','text-anchor':'end'}));
+      // bars
+      for(let b=0;b<NB;b++){
+        const frac=total?counts[b]/total:0;
+        const x=X0+b*bw+3, y=ym(frac), h=Y1-y;
+        svg.appendChild(svgEl('rect',{x,y,width:bw-6,height:Math.max(0,h),fill:'#cfe0f1',stroke:'var(--est)','stroke-width':1}));
+      }
+      // x labels
+      svg.appendChild(txt(X0,Y1+18,'0',{'font-size':11,fill:'#8a8f9c','text-anchor':'middle'}));
+      svg.appendChild(txt(X1,Y1+18,'1',{'font-size':11,fill:'#8a8f9c','text-anchor':'middle'}));
+      svg.appendChild(txt((X0+X1)/2,Y1+18,'draw value (10 bins across [0,1))',{'font-size':12,fill:'#8a8f9c','text-anchor':'middle'}));
+      // y labels
+      [0,0.05,0.10,0.15].forEach(t=>{svg.appendChild(txt(X0-6,ym(t)+4,(t*100).toFixed(0)+'%',{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'}));});
+      // readout
+      document.getElementById('h-total').textContent=total.toLocaleString();
+      if(total){
+        let maxe=0; for(let b=0;b<NB;b++) maxe=Math.max(maxe,Math.abs(counts[b]/total-0.1));
+        document.getElementById('h-err').textContent=(maxe*100).toFixed(2)+' pp';
+      } else document.getElementById('h-err').textContent='—';
+    }
+    function add(k){ for(let i=0;i<k;i++) counts[Math.floor(Math.random()*NB)]++; total+=k; draw(); }
+    document.getElementById('h-add1').onclick=()=>add(1000);
+    document.getElementById('h-add100').onclick=()=>add(100000);
+    document.getElementById('h-reset').onclick=()=>{counts=new Array(NB).fill(0);total=0;draw();};
+    draw();
+  })();
+
+  // ===================================================================
+  // Figure 3 — convergence of mean & variance (streaming Welford)
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('conv');
+    const X0=58,X1=560,Y0=30,Y1=288, NMAX=300000, YMAX=1.0;
+    const L10=Math.log10(NMAX);
+    const xm=n=>X0+Math.log10(Math.max(1,n))/L10*(X1-X0);
+    const ym=v=>Y1-clamp(v,0,YMAX)/YMAX*(Y1-Y0);
+    let n,mean,m2,meanPts,varPts,nextRec,raf=null;
+
+    function frame(){
+      const layer=document.getElementById('conv-data');
+      // static backdrop is drawn once; here just refresh data layer
+      layer.textContent='';
+      layer.appendChild(polyline(meanPts,'var(--est)',2.4));
+      layer.appendChild(polyline(varPts,'var(--bessel)',2.4));
+      document.getElementById('c-n').textContent=n.toLocaleString();
+      document.getElementById('c-mean').textContent=mean.toFixed(5);
+      document.getElementById('c-var').textContent=(n>1?m2/(n-1):0).toFixed(5);
+    }
+    function step(){
+      const target=Math.min(NMAX,n+4000);
+      for(;n<target;){
+        const x=Math.random(); n++;
+        const d=x-mean; mean+=d/n; m2+=d*(x-mean);
+        if(n>=nextRec){
+          meanPts.push([xm(n),ym(mean)]);
+          varPts.push([xm(n),ym(n>1?m2/(n-1):0)]);
+          nextRec=Math.ceil(nextRec*Math.pow(10,1/40));
+        }
+      }
+      frame();
+      if(n<NMAX) raf=requestAnimationFrame(step); else raf=null;
+    }
+    function backdrop(){
+      svg.textContent='';
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      // decade gridlines + labels
+      for(let e=1;e<=L10;e++){const xv=X0+e/L10*(X1-X0);
+        svg.appendChild(svgEl('line',{x1:xv,y1:Y0,x2:xv,y2:Y1,stroke:'#eef0f4','stroke-width':1}));
+        svg.appendChild(txt(xv,Y1+16,'10^'+e,{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));
+      }
+      svg.appendChild(txt((X0+X1)/2,Y1+32,'number of samples n  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle'}));
+      // true-value lines
+      svg.appendChild(svgEl('line',{x1:X0,y1:ym(0.5),x2:X1,y2:ym(0.5),stroke:'var(--true)','stroke-width':1.3,'stroke-dasharray':'5 4'}));
+      svg.appendChild(txt(X1-2,ym(0.5)-6,'mean → 0.5',{'font-size':11.5,fill:'var(--true)','text-anchor':'end'}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:ym(TRUE_VAR),x2:X1,y2:ym(TRUE_VAR),stroke:'var(--true)','stroke-width':1.3,'stroke-dasharray':'5 4'}));
+      svg.appendChild(txt(X1-2,ym(TRUE_VAR)-6,'variance → 0.0833',{'font-size':11.5,fill:'var(--true)','text-anchor':'end'}));
+      // y ticks
+      [0,0.5,1.0].forEach(t=>svg.appendChild(txt(X0-6,ym(t)+4,t.toFixed(1),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'})));
+      // labelled curves legend
+      svg.appendChild(svgEl('line',{x1:X0+18,y1:Y0+12,x2:X0+44,y2:Y0+12,stroke:'var(--est)','stroke-width':3}));
+      svg.appendChild(txt(X0+50,Y0+16,'running mean',{'font-size':12,fill:'#5b6472'}));
+      svg.appendChild(svgEl('line',{x1:X0+170,y1:Y0+12,x2:X0+196,y2:Y0+12,stroke:'var(--bessel)','stroke-width':3}));
+      svg.appendChild(txt(X0+202,Y0+16,'running variance',{'font-size':12,fill:'#5b6472'}));
+      svg.appendChild(svgEl('g',{id:'conv-data'}));
+    }
+    function reset(){ if(raf){cancelAnimationFrame(raf);raf=null;}
+      n=0;mean=0;m2=0;meanPts=[];varPts=[];nextRec=1; backdrop();
+      document.getElementById('c-n').textContent='0';
+      document.getElementById('c-mean').textContent='—';
+      document.getElementById('c-var').textContent='—';
+    }
+    document.getElementById('c-run').onclick=()=>{ if(raf) return; if(n>=NMAX) reset(); step(); };
+    document.getElementById('c-reset').onclick=reset;
+    reset();
+  })();
+
+  // ===================================================================
+  // Figure 4 — Welford step-through
+  // ===================================================================
+  (function(){
+    const data=[0.42,0.71,0.13,0.92,0.27,0.58];
+    const body=document.getElementById('w-body');
+    let n,mean,m2;
+    function reset(){ n=0;mean=0;m2=0; body.textContent='';
+      document.getElementById('w-mean').textContent='—';
+      document.getElementById('w-m2').textContent='—';
+      document.getElementById('w-step').disabled=false;
+    }
+    function step(){
+      if(n>=data.length) return;
+      const x=data[n]; n++;
+      const delta=x-mean; mean+=delta/n; const dev=x-mean; m2+=delta*dev;
+      const tr=document.createElement('tr');
+      const cells=[n, x.toFixed(2), delta.toFixed(4), mean.toFixed(4), dev.toFixed(4), m2.toFixed(4), n>1?(m2/(n-1)).toFixed(4):'—'];
+      cells.forEach((c,i)=>{const td=document.createElement('td');td.className='num';td.textContent=c;if(i===3)td.style.color='var(--est)';if(i===5)td.style.color='var(--bessel)';tr.appendChild(td);});
+      body.appendChild(tr);
+      document.getElementById('w-mean').textContent=mean.toFixed(4);
+      document.getElementById('w-m2').textContent=m2.toFixed(4);
+      if(n>=data.length) document.getElementById('w-step').disabled=true;
+    }
+    document.getElementById('w-step').onclick=step;
+    document.getElementById('w-reset').onclick=reset;
+    reset(); step();  // show the first row immediately
+  })();
+
+  // ===================================================================
+  // Figure 5 — Bessel correction bias demo
+  // ===================================================================
+  (function(){
+    const SCALE=0.14;  // bar full width corresponds to this variance value
+    const TRIALS=4000;
+    const set=(bid,vid,val)=>{document.getElementById(bid).style.width=(clamp(val/SCALE,0,1)*100).toFixed(1)+'%';document.getElementById(vid).textContent=val.toFixed(4);};
+    function run(n){
+      let sumNaive=0,sumBessel=0;
+      for(let t=0;t<TRIALS;t++){
+        let mean=0,m2=0;
+        for(let i=0;i<n;i++){const x=Math.random();const d=x-mean;mean+=d/(i+1);m2+=d*(x-mean);}
+        sumNaive+=m2/n; sumBessel+=m2/(n-1);
+      }
+      set('bb-true','bv-true',TRUE_VAR);
+      set('bb-naive','bv-naive',sumNaive/TRIALS);
+      set('bb-bessel','bv-bessel',sumBessel/TRIALS);
+      document.getElementById('b-nval').textContent=n;
+      document.getElementById('b-factor').textContent=((n-1)/n).toFixed(3);
+    }
+    const sl=document.getElementById('b-n');
+    sl.addEventListener('input',()=>run(+sl.value));
+    run(+sl.value);
+  })();
+})();
+</script>
+
+</body>
+</html>

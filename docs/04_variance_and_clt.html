@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 — Variance, the CLT &amp; error bars — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --est:#2b6cb0; --true:#2f9e64; --bad:#e53e3e; --band:#7c3aed; --normal:#dd6b20; --gold:#d9a500;
+    --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--true)}
+  .callout.warn{border-left-color:var(--normal)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+  label.chk{font-size:13.5px; color:var(--muted); display:inline-flex; gap:6px; align-items:center}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Variance of the estimator, the CLT &amp; error bars</h1>
+<p class="sub">04_variance_and_clt.cpp — why the Monte Carlo error falls as 1/√N (now <em>proved</em>, not just observed), and how a renderer attaches an honest “±” to every result and decides a pixel has converged.</p>
+
+<p class="lead">Example 03 produced one number per run. But that number is itself a random variable: run the estimator again with fresh samples and you get a slightly different answer. This file studies that randomness head-on — its size (variance), its shape (the Central Limit Theorem), and the error bar and confidence interval you can build from a single run. It then <em>tests</em> the theory by launching 100,000 independent estimators and checking they behave exactly as predicted.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> The estimate $F_N$ is unbiased with variance $\operatorname{Var}[Y]/N$, so its standard deviation — the <em>standard error</em> — is $\sigma_Y/\sqrt N$ (this is the $1/\sqrt N$ law, proved); the Central Limit Theorem makes $F_N$ approximately $\mathrm{Normal}(I,\sigma_Y^2/N)$, so $F_N\pm1.96\,\mathrm{SE}$ is a 95% confidence interval — and you can estimate $\mathrm{SE}$ from the very same samples, getting an error bar for free.
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--est)"></i> estimate $F_N$</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> true value $I=e-1$</span>
+  <span><i class="swatch" style="border-color:var(--band)"></i> 95% CI / standard error</span>
+  <span><i class="swatch" style="border-color:var(--normal)"></i> Normal (CLT) fit</span>
+  <span><i class="dot" style="background:var(--bad)"></i> interval that missed $I$</span>
+</div>
+
+
+<h2>1. The estimate is a random variable</h2>
+
+<p>We reuse the integral from example 03: $f(x)=e^x$ on $[0,1]$, whose exact value is $I=e-1\approx1.7182818$. Writing $Y_i=f(X_i)/p(X_i)$ for each sampled term, the estimator is their average</p>
+
+$$F_N=\frac1N\sum_{i=1}^N Y_i .$$
+
+<p>Each run uses different random $X_i$, so each run lands on a slightly different $F_N$. Collect the estimates from many runs and they form a <strong>cloud around the true value</strong> — the <em>sampling distribution</em> of the estimator. Everything below is about the size and shape of that cloud.</p>
+
+<figure>
+<svg viewBox="0 0 680 130" role="img" aria-label="Many independent estimates scattered as dots around the true value line.">
+  <line x1="40" y1="65" x2="640" y2="65" stroke="#cbd0d9" stroke-width="1.2"/>
+  <line x1="340" y1="22" x2="340" y2="108" stroke="var(--true)" stroke-width="2"/>
+  <text x="346" y="34" font-size="12.5" fill="var(--true)">true I = e−1</text>
+  <g fill="var(--est)" fill-opacity="0.55">
+    <circle cx="300" cy="62" r="3.5"/><circle cx="372" cy="70" r="3.5"/><circle cx="338" cy="58" r="3.5"/>
+    <circle cx="318" cy="74" r="3.5"/><circle cx="360" cy="60" r="3.5"/><circle cx="352" cy="72" r="3.5"/>
+    <circle cx="286" cy="68" r="3.5"/><circle cx="392" cy="64" r="3.5"/><circle cx="330" cy="66" r="3.5"/>
+    <circle cx="346" cy="55" r="3.5"/><circle cx="312" cy="59" r="3.5"/><circle cx="378" cy="73" r="3.5"/>
+    <circle cx="324" cy="71" r="3.5"/><circle cx="358" cy="67" r="3.5"/><circle cx="304" cy="69" r="3.5"/>
+    <circle cx="366" cy="57" r="3.5"/><circle cx="334" cy="76" r="3.5"/><circle cx="348" cy="63" r="3.5"/>
+  </g>
+  <text x="40" y="120" font-size="12" fill="#8a8f9c">each dot = one independent estimate (its own batch of samples)</text>
+</svg>
+<figcaption>Figure 1. Run the estimator many times and the answers scatter around the truth. The center of the cloud is $I$ (the estimator is unbiased); the <em>width</em> of the cloud is the standard error, and it shrinks as each run uses more samples.</figcaption>
+</figure>
+
+
+<h2>2. The size of the cloud: variance falls as 1/N</h2>
+
+<p>Three facts pin down the cloud. The estimator is an average of $N$ independent copies of $Y$, so:</p>
+
+<p><strong>It is unbiased</strong> — centered on the right answer:</p>
+$$\mathbb E[F_N]=\frac1N\sum_{i=1}^N\mathbb E[Y_i]=\mathbb E[Y]=I.$$
+
+<p><strong>Its variance falls as $1/N$.</strong> Variance of a sum of independent things is the sum of their variances, and pulling the $1/N$ out of the average squares it:</p>
+$$\operatorname{Var}[F_N]=\frac1{N^2}\sum_{i=1}^N\operatorname{Var}[Y_i]=\frac{N\,\operatorname{Var}[Y]}{N^2}=\frac{\operatorname{Var}[Y]}{N}.$$
+
+<p><strong>So its standard deviation falls as $1/\sqrt N$:</strong></p>
+$$\operatorname{SD}[F_N]=\frac{\sigma_Y}{\sqrt N}\equiv\mathrm{SE},\qquad \sigma_Y=\sqrt{\operatorname{Var}[Y]} .$$
+
+<div class="callout">
+<strong>This <em>is</em> the law from example 02 — now derived.</strong> Earlier we just <em>watched</em> the error fall as $1/\sqrt N$ and saw error$\times\sqrt N$ flatten to a constant. That constant has a name now: it is $\sigma_Y$, the standard deviation of a single sample. The error of an $N$-sample estimate is $\sigma_Y/\sqrt N$. Variance reduction (examples 06–09) is the project of shrinking $\sigma_Y$.
+</div>
+
+
+<h2>3. The standard error, and a free error bar</h2>
+
+<p>The catch: $\sigma_Y$ depends on $\operatorname{Var}[Y]$, which itself depends on the integral we don’t know. The fix is to <strong>estimate $\sigma_Y$ from the very same samples</strong>, using the Bessel-corrected sample variance from example 01. With sample variance $s^2=\tfrac1{N-1}\sum(Y_i-F_N)^2$, the estimated standard error is</p>
+
+$$\widehat{\mathrm{SE}}=\frac{s}{\sqrt N}=\sqrt{\frac{s^2}{N}} .$$
+
+<p>One Welford pass gives you the estimate <em>and</em> its error bar together — no extra samples, no second loop. Watch a single run report its estimate with a shrinking $\pm1.96\,\widehat{\mathrm{SE}}$ band that keeps the true value inside:</p>
+
+<figure>
+<svg id="single" viewBox="0 0 600 320" role="img" aria-label="A single estimator streaming, with its self-computed confidence band shrinking around the true value."></svg>
+<div class="ctl">
+  <button id="s-run">Run</button>
+  <button id="s-reset">Reset</button>
+  <span class="small">n = <b id="s-n">0</b> · estimate = <b id="s-est">—</b> · SE = <b id="s-se">—</b> · 95% CI = <b id="s-ci">—</b></span>
+</div>
+<figcaption>Figure 2. One estimator over increasing $N$. The blue line is the running estimate $F_N$; the purple band is the self-computed $\pm1.96\,\widehat{\mathrm{SE}}$; the green line is the true $I$. The band narrows as $1/\sqrt N$ and brackets the truth — an honest error bar built from the samples themselves.</figcaption>
+</figure>
+
+
+<h2>4. The shape of the cloud: the Central Limit Theorem</h2>
+
+<p>Knowing the cloud’s center and width is not enough to make a 95% statement — for that we need its <em>shape</em>. The <strong>Central Limit Theorem</strong> supplies it: as $N$ grows, the distribution of an average approaches a <strong>Normal (Gaussian)</strong>, <em>no matter what shape the individual $Y$ has</em>. Here $Y=e^X$ is quite skewed, yet $F_N$ becomes a clean bell:</p>
+
+$$F_N\;\xrightarrow{\;\text{large }N\;}\;\mathrm{Normal}\!\left(I,\ \frac{\sigma_Y^2}{N}\right).$$
+
+<p>Build the sampling distribution yourself. Each click runs more estimators (each an average of $K$ samples) and drops them into the histogram. Toggle the Normal curve to see how well $\mathrm{Normal}(I,\sigma_Y^2/K)$ matches, and drag $K$ to watch the bell narrow as $1/\sqrt K$ while keeping its shape.</p>
+
+<figure>
+<svg id="hist" viewBox="0 0 600 300" role="img" aria-label="Histogram of many estimates forming a bell, with the predicted Normal overlaid."></svg>
+<div class="ctl">
+  samples per estimate K = <b id="h-kval">1000</b>
+  <input id="h-k" type="range" min="10" max="2000" value="1000" step="10">
+  <label class="chk"><input type="checkbox" id="h-normal" checked> show Normal fit</label>
+</div>
+<div class="ctl">
+  <button id="h-1">+1 estimate</button>
+  <button id="h-200">+200</button>
+  <button id="h-2000">+2,000</button>
+  <button id="h-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>estimates so far</span><b id="h-count">0</b></div>
+  <div class="row"><span>mean of estimates</span><b id="h-mean">—</b></div>
+  <div class="row"><span>spread (SD) of estimates</span><b id="h-spread" style="color:var(--est)">—</b></div>
+  <div class="row"><span>predicted SE = σ_Y/√K</span><b id="h-pred" style="color:var(--normal)">—</b></div>
+</div>
+<figcaption>Figure 3. The sampling distribution of $F_N$. Even though a single $Y=e^X$ is skewed, the average of $K$ of them piles into a Normal centered on $I$ (orange fit). The measured spread tracks the predicted $\sigma_Y/\sqrt K$, and raising $K$ narrows the bell at the $1/\sqrt K$ rate.</figcaption>
+</figure>
+
+<h3>Why 1.96?</h3>
+<p>A Normal places a fixed fraction of its mass within a given number of standard deviations of its center — the “68–95–99.7” rule. Exactly 95% lies within $\pm1.96\sigma$, which is where the magic number comes from.</p>
+
+<figure>
+<svg id="bell" viewBox="0 0 600 210" role="img" aria-label="A Normal curve with the central 95 percent between minus and plus 1.96 standard deviations shaded."></svg>
+<figcaption>Figure 4. The standard Normal. The shaded central region between $-1.96\sigma$ and $+1.96\sigma$ holds 95% of the probability; the two tails hold 2.5% each. That is the entire basis of a 95% confidence interval.</figcaption>
+</figure>
+
+
+<h2>5. Confidence intervals — and what “95%” really means</h2>
+
+<p>Put the width (§3) and the shape (§4) together. Since $F_N$ is approximately $\mathrm{Normal}(I,\mathrm{SE}^2)$, the interval</p>
+
+$$\big[\,F_N-1.96\,\widehat{\mathrm{SE}}\;,\;\; F_N+1.96\,\widehat{\mathrm{SE}}\,\big]$$
+
+<p>is an approximate <strong>95% confidence interval</strong> for $I$. The subtle part is the interpretation: $I$ is a fixed number, not random. What is random is the <em>interval</em> — it jumps around with each run. The claim is frequentist:</p>
+
+<div class="callout warn">
+<strong>What “95% confidence” means.</strong> It is <em>not</em> “there’s a 95% chance $I$ is in this particular interval.” It is: <em>if you repeated the whole experiment many times, about 95% of the intervals you build this way would contain the true $I$.</em> The interval is the random thing; the coverage is a long-run frequency.
+</div>
+
+
+<h2>6. Testing the theory: 100,000 estimators</h2>
+
+<p>Part 2 of the file is an empirical audit. It runs many independent estimators (each $K=1000$ samples), and checks two predictions at once: that the <strong>spread</strong> of all the estimates equals $\sigma_Y/\sqrt K$, and that each estimator’s self-built 95% interval <strong>covers</strong> the truth about 95% of the time. Run it below — each row is one estimator’s interval, green if it caught $I$, red if it missed; the running coverage settles on 95%.</p>
+
+<figure>
+<svg id="cover" viewBox="0 0 600 330" role="img" aria-label="Stacked confidence intervals from many estimators, colored by whether they cover the true value, with running coverage percentage."></svg>
+<div class="ctl">
+  <button id="v-1">+1 estimator</button>
+  <button id="v-50">+50</button>
+  <button id="v-2000">+2,000</button>
+  <button id="v-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>estimators run</span><b id="v-total">0</b></div>
+  <div class="row"><span>covered the truth</span><b id="v-cov" class="big" style="color:var(--true)">—</b></div>
+  <div class="row"><span>spread of estimates</span><b id="v-spread" style="color:var(--est)">—</b></div>
+  <div class="row"><span>predicted SE = σ_Y/√K</span><b id="v-pred" style="color:var(--normal)">—</b></div>
+</div>
+<figcaption>Figure 5. Confidence-interval coverage ($K=1000$ samples each). Each horizontal bar is one estimator’s $\pm1.96\,\widehat{\mathrm{SE}}$ interval around its estimate (dot); green bars straddle the true-$I$ line, red bars miss it. Roughly 1 in 20 misses, so the running coverage hovers at ~95% — and the measured spread of the dots matches the predicted standard error.</figcaption>
+</figure>
+
+<div class="callout key">
+<strong>Why this matters for rendering.</strong> This is what lets a path tracer be honest about noise. The per-pixel variance, accumulated online while sampling, yields a standard error; the CLT turns it into a confidence band. That band is exactly what adaptive samplers watch to decide “this pixel is converged, stop spending samples here” and what denoisers and noise-threshold stopping criteria are built on.
+</div>
+
+
+<h2>7. The code</h2>
+
+<p>Part 1 is one Welford pass producing the estimate, its standard error, and the 95% interval together:</p>
+
+<pre><code>double mean = 0.0, m2 = 0.0; long long n = 0;
+for (long long i = 0; i &lt; 10000000; ++i) {
+    double y = f(rng.NextFloat());     // Y = f(X)/p(X), p = 1 on [0,1]
+    ++n;
+    double delta = y - mean; mean += delta / n; m2 += delta * (y - mean);  // Welford
+    if (n == nextReport) {
+        double var = m2 / (n - 1);     // sample variance of Y   (Bessel)
+        double se  = sqrt(var / n);    // standard error of the mean
+        printf("%lld  %.7f  SE=%.7f  CI=[%.6f, %.6f]\n",
+               n, mean, se, mean - 1.96*se, mean + 1.96*se);
+        nextReport *= 10;
+    }
+}</code></pre>
+
+<p>Part 2 runs <code>kNumEstimates = 100000</code> estimators of <code>kPerEstimate = 1000</code> samples each, measures the spread of the estimates, and counts coverage — then compares against the analytic prediction $\sigma_Y/\sqrt K$ using the exact $\operatorname{Var}[Y]=\tfrac{e^2-1}{2}-(e-1)^2$:</p>
+
+<pre><code>int covered = 0; double gMean = 0, gM2 = 0;           // stats OF the estimates
+for (int e = 0; e &lt; kNumEstimates; ++e) {
+    double m = 0, s2 = 0;                              // one estimator (Welford)
+    for (int i = 0; i &lt; kPerEstimate; ++i) {
+        double y = f(rng.NextFloat());
+        double d = y - m; m += d/(i+1); s2 += d*(y-m);
+    }
+    double se = sqrt((s2/(kPerEstimate-1)) / kPerEstimate);
+    if (fabs(m - I) &lt;= 1.96*se) ++covered;             // did the CI cover I?
+    double d = m - gMean; gMean += d/(e+1); gM2 += d*(m-gMean);
+}
+double spread = sqrt(gM2/(kNumEstimates-1));           // ~ sigma_Y/sqrt(K)
+double predSE = sqrt(((kE*kE-1)/2 - I*I) / kPerEstimate);</code></pre>
+
+<p>Typical output: mean of estimates $\approx I$, spread $\approx\,$predicted SE $\approx0.0156$, and coverage $\approx95\%$ — the estimator behaves exactly like the Normal the CLT promises.</p>
+
+
+<h2>8. Takeaways</h2>
+<ul>
+<li><strong>The estimate is random.</strong> Its sampling distribution is centered on $I$ (unbiased) with variance $\operatorname{Var}[Y]/N$.</li>
+<li><strong>$1/\sqrt N$, proved.</strong> $\operatorname{SD}[F_N]=\sigma_Y/\sqrt N$ — the standard error. This is the law example 02 only observed; variance reduction shrinks $\sigma_Y$.</li>
+<li><strong>Free error bar.</strong> Estimate $\sigma_Y$ from the same samples (Bessel sample variance) to get $\widehat{\mathrm{SE}}=s/\sqrt N$ in a single Welford pass.</li>
+<li><strong>CLT gives the shape.</strong> For large $N$, $F_N\approx\mathrm{Normal}(I,\sigma_Y^2/N)$ regardless of the integrand, so $\pm1.96\,\widehat{\mathrm{SE}}$ is a 95% interval.</li>
+<li><strong>Coverage is a long-run frequency.</strong> Over many runs ~95% of the intervals contain $I$; verified empirically at ~95%. This is the machinery behind honest noise estimates and adaptive sampling.</li>
+</ul>
+
+<p class="small">References — the $\operatorname{Var}/N$ law and CLT are standard; see Sheldon Ross, <em>A First Course in Probability</em>, or Owen, <em>Monte Carlo theory, methods and examples</em>, ch. 2. For estimator variance and error bars in rendering, Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.2; Welford’s online variance is from example 01.</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const E=Math.E, I=E-1;
+  const VARY=(E*E-1)/2 - I*I;          // Var[Y] for Y=e^X, X~U[0,1]  ≈ 0.24204
+  const SIGY=Math.sqrt(VARY);          // ≈ 0.49197
+
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // one estimator: average of K draws of Y=e^X, with online mean+variance -> {est, se}
+  function runEstimator(K){
+    let m=0,s2=0;
+    for(let i=0;i<K;i++){const y=Math.exp(Math.random()); const d=y-m; m+=d/(i+1); s2+=d*(y-m);}
+    const se=Math.sqrt((s2/(K-1))/K);
+    return {est:m, se};
+  }
+
+  // ===================================================================
+  // Figure 2 — single run with shrinking CI band
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('single');
+    const NMAX=200000, NSTART=10;
+    const X0=60,X1=560,Y0=24,Y1=276, L10=Math.log10(NMAX), YLO=I-0.42, YHI=I+0.42;
+    const xm=n=>X0+Math.log10(Math.max(1,n))/L10*(X1-X0);
+    const ym=v=>Y1-(clamp(v,YLO,YHI)-YLO)/(YHI-YLO)*(Y1-Y0);
+    let n,mean,m2,estPts,upPts,loPts,raf=null;
+    function backdrop(){
+      svg.textContent='';
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let e=1;e<=L10;e++){const x=X0+e/L10*(X1-X0);svg.appendChild(svgEl('line',{x1:x,y1:Y0,x2:x,y2:Y1,stroke:'#eef0f4'}));svg.appendChild(txt(x,Y1+16,'10^'+e,{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));}
+      svg.appendChild(txt((X0+X1)/2,Y1+32,'samples N  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle'}));
+      [I-0.3,I,I+0.3].forEach(v=>svg.appendChild(txt(X0-6,ym(v)+4,v.toFixed(2),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'})));
+      svg.appendChild(svgEl('line',{x1:X0,y1:ym(I),x2:X1,y2:ym(I),stroke:'var(--true)','stroke-width':1.6,'stroke-dasharray':'5 4'}));
+      svg.appendChild(txt(X1-2,ym(I)-6,'true I = e−1',{'font-size':11.5,fill:'var(--true)','text-anchor':'end'}));
+      svg.appendChild(svgEl('g',{id:'single-band'}));
+      svg.appendChild(svgEl('g',{id:'single-line'}));
+    }
+    function frame(){
+      const band=document.getElementById('single-band'), line=document.getElementById('single-line');
+      band.textContent=''; line.textContent='';
+      if(upPts.length>1){
+        const d='M'+upPts.map(p=>p[0].toFixed(2)+','+p[1].toFixed(2)).join(' L')+
+                ' L'+loPts.slice().reverse().map(p=>p[0].toFixed(2)+','+p[1].toFixed(2)).join(' L')+' Z';
+        band.appendChild(svgEl('path',{d,fill:'var(--band)','fill-opacity':0.14,stroke:'none'}));
+      }
+      line.appendChild(polyline(estPts,'var(--est)',2));
+      const se=n>1?Math.sqrt((m2/(n-1))/n):0;
+      document.getElementById('s-n').textContent=n.toLocaleString();
+      document.getElementById('s-est').textContent=mean.toFixed(5);
+      document.getElementById('s-se').textContent=se.toFixed(5);
+      document.getElementById('s-ci').textContent='['+(mean-1.96*se).toFixed(4)+', '+(mean+1.96*se).toFixed(4)+']';
+    }
+    function step(){
+      const target=Math.min(NMAX,n+4000);
+      for(;n<target;){
+        const y=Math.exp(Math.random()); n++;
+        const d=y-mean; mean+=d/n; m2+=d*(y-mean);
+        if(n>=NSTART && (estPts.length===0 || n>=estPts._next)){
+          const se=Math.sqrt((m2/(n-1))/n);
+          estPts.push([xm(n),ym(mean)]); upPts.push([xm(n),ym(mean+1.96*se)]); loPts.push([xm(n),ym(mean-1.96*se)]);
+          estPts._next=Math.ceil((estPts._next||NSTART)*Math.pow(10,1/50));
+        }
+      }
+      frame();
+      if(n<NMAX) raf=requestAnimationFrame(step); else raf=null;
+    }
+    function reset(){ if(raf){cancelAnimationFrame(raf);raf=null;}
+      n=0;mean=0;m2=0;estPts=[];estPts._next=NSTART;upPts=[];loPts=[]; backdrop();
+      document.getElementById('s-n').textContent='0';['s-est','s-se','s-ci'].forEach(id=>document.getElementById(id).textContent='—');
+    }
+    document.getElementById('s-run').onclick=()=>{ if(raf)return; if(n>=NMAX)reset(); step(); };
+    document.getElementById('s-reset').onclick=reset;
+    reset();
+  })();
+
+  // ===================================================================
+  // Figure 3 — sampling distribution histogram + Normal fit
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('hist');
+    const X0=54,X1=566,Y0=20,Y1=250, NB=61;
+    let K=1000, LO, HI, bw, counts=new Array(NB).fill(0), total=0, gM=0, gM2=0, showNormal=true;
+    const xm=v=>X0+(clamp(v,LO,HI)-LO)/(HI-LO)*(X1-X0);
+    function pred(){ return SIGY/Math.sqrt(K); }
+    function setRange(){ const W=4*pred(); LO=I-W; HI=I+W; bw=(HI-LO)/NB; }
+    function draw(){
+      svg.textContent='';
+      const SE=pred();
+      // expected peak count to size the y-axis
+      const peakPdf=1/(SE*Math.sqrt(2*Math.PI));
+      let maxC=0; for(const c of counts) maxC=Math.max(maxC,c);
+      const predPeak=total*bw*peakPdf;
+      const CMAX=Math.max(maxC, showNormal?predPeak:0, 1)*1.12;
+      const ym=c=>Y1-clamp(c,0,CMAX)/CMAX*(Y1-Y0);
+      // axis
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      const SEc=pred();
+      [[I-4*SEc,'−4·SE'],[I-2*SEc,'−2·SE'],[I,'I'],[I+2*SEc,'+2·SE'],[I+4*SEc,'+4·SE']].forEach(([v,l])=>{svg.appendChild(svgEl('line',{x1:xm(v),y1:Y1,x2:xm(v),y2:Y1+5,stroke:'#9aa0ad'}));svg.appendChild(txt(xm(v),Y1+18,v.toFixed(3),{'font-size':10,fill:'#8a8f9c','text-anchor':'middle'}));svg.appendChild(txt(xm(v),Y1+31,l,{'font-size':9.5,fill:'#aeb4bf','text-anchor':'middle'}));});
+      svg.appendChild(txt((X0+X1)/2,Y1+45,'value of the estimate  F_K   (axis spans ±4 standard errors)',{'font-size':12,fill:'#5b6472','text-anchor':'middle'}));
+      // bars
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const x=X0+(b/NB)*(X1-X0), w=(X1-X0)/NB;
+        svg.appendChild(svgEl('rect',{x:x+0.5,y:ym(counts[b]),width:Math.max(0.5,w-1),height:Y1-ym(counts[b]),fill:'#cfe0f1',stroke:'var(--est)','stroke-width':0.6}));}
+      // true I line
+      svg.appendChild(svgEl('line',{x1:xm(I),y1:Y0,x2:xm(I),y2:Y1,stroke:'var(--true)','stroke-width':2}));
+      svg.appendChild(txt(xm(I)+5,Y0+12,'true I',{'font-size':11.5,fill:'var(--true)'}));
+      // normal overlay
+      if(showNormal && total>0){
+        const pts=[];
+        for(let i=0;i<=160;i++){const v=LO+(HI-LO)*i/160; const pdf=Math.exp(-0.5*((v-I)/SE)**2)/(SE*Math.sqrt(2*Math.PI)); pts.push([xm(v),ym(total*bw*pdf)]);}
+        svg.appendChild(polyline(pts,'var(--normal)',2.4));
+      }
+      // readouts
+      document.getElementById('h-count').textContent=total.toLocaleString();
+      document.getElementById('h-mean').textContent=total?gM.toFixed(5):'—';
+      document.getElementById('h-spread').textContent=total>1?Math.sqrt(gM2/(total-1)).toFixed(5):'—';
+      document.getElementById('h-pred').textContent=SE.toFixed(5);
+    }
+    function add(M){
+      for(let i=0;i<M;i++){const {est}=runEstimator(K);
+        const b=clamp(Math.floor((est-LO)/bw),0,NB-1); counts[b]++; total++;
+        const d=est-gM; gM+=d/total; gM2+=d*(est-gM);
+      }
+      draw();
+    }
+    function reset(){setRange();counts=new Array(NB).fill(0);total=0;gM=0;gM2=0;draw();}
+    document.getElementById('h-1').onclick=()=>add(1);
+    document.getElementById('h-200').onclick=()=>add(200);
+    document.getElementById('h-2000').onclick=()=>add(2000);
+    document.getElementById('h-reset').onclick=reset;
+    document.getElementById('h-normal').onchange=e=>{showNormal=e.target.checked;draw();};
+    const sl=document.getElementById('h-k');
+    sl.addEventListener('input',()=>{K=+sl.value;document.getElementById('h-kval').textContent=K;reset();});
+    setRange(); add(2000);
+  })();
+
+  // ===================================================================
+  // Figure 4 — standard Normal with central 95%
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('bell');
+    const X0=40,X1=560,Y0=20,Y1=168, ZMAX=3.4;
+    const xm=z=>X0+(z+ZMAX)/(2*ZMAX)*(X1-X0);
+    const pdf=z=>Math.exp(-0.5*z*z)/Math.sqrt(2*Math.PI);
+    const ym=p=>Y1-p/pdf(0)*(Y1-Y0);
+    // shaded central region |z|<1.96
+    const sh=[]; for(let z=-1.96;z<=1.96+1e-9;z+=0.02) sh.push([xm(z),ym(pdf(z))]);
+    let d='M'+xm(-1.96)+','+Y1+' '+sh.map(p=>'L'+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+' L'+xm(1.96)+','+Y1+' Z';
+    svg.appendChild(svgEl('path',{d,fill:'var(--band)','fill-opacity':0.16,stroke:'none'}));
+    // full curve
+    const cv=[]; for(let z=-ZMAX;z<=ZMAX+1e-9;z+=0.02) cv.push([xm(z),ym(pdf(z))]);
+    svg.appendChild(polyline(cv,'var(--normal)',2.4));
+    svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+    // markers
+    [[-1.96,'−1.96σ'],[1.96,'+1.96σ'],[0,'mean']].forEach(([z,l])=>{
+      svg.appendChild(svgEl('line',{x1:xm(z),y1:ym(pdf(z)),x2:xm(z),y2:Y1,stroke:'#9aa0ad','stroke-width':1,'stroke-dasharray':'3 3'}));
+      svg.appendChild(txt(xm(z),Y1+16,l,{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+    });
+    svg.appendChild(txt(xm(0),ym(pdf(0))-8,'95% of the mass',{'font-size':12.5,fill:'var(--band)','text-anchor':'middle',font_weight:600}));
+    svg.appendChild(txt(xm(-2.6),Y0+44,'2.5%',{'font-size':11,fill:'#8a8f9c','text-anchor':'middle'}));
+    svg.appendChild(txt(xm(2.6),Y0+44,'2.5%',{'font-size':11,fill:'#8a8f9c','text-anchor':'middle'}));
+  })();
+
+  // ===================================================================
+  // Figure 5 — confidence-interval coverage
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('cover');
+    const K=1000, SEpred=SIGY/Math.sqrt(K);
+    const X0=40,X1=560,Y0=24,Y1=300, ROWS=42, HALF=4*SEpred; // x-window I ± 4 SE
+    const xm=v=>X0+(clamp(v,I-HALF,I+HALF)-(I-HALF))/(2*HALF)*(X1-X0);
+    let total=0, covered=0, gM=0, gM2=0, recent=[];
+    function draw(){
+      svg.textContent='';
+      // true I vertical line
+      svg.appendChild(svgEl('line',{x1:xm(I),y1:Y0-4,x2:xm(I),y2:Y1,stroke:'var(--true)','stroke-width':2}));
+      svg.appendChild(txt(xm(I),Y1+16,'true I = e−1',{'font-size':11.5,fill:'var(--true)','text-anchor':'middle'}));
+      // x ticks at ±2SE, ±4SE
+      [-4,-2,2,4].forEach(k=>{const v=I+k*SEpred;svg.appendChild(txt(xm(v),Y0-8,(k>0?'+':'')+k+'·SE',{'font-size':10,fill:'#aeb4bf','text-anchor':'middle'}));});
+      // recent intervals stacked
+      const rh=(Y1-Y0)/ROWS;
+      recent.forEach((r,idx)=>{const y=Y0+ (ROWS-1-idx)*rh + rh/2;
+        const col=r.cov?'var(--true)':'var(--bad)';
+        svg.appendChild(svgEl('line',{x1:xm(r.est-1.96*r.se),y1:y,x2:xm(r.est+1.96*r.se),y2:y,stroke:col,'stroke-width':2,opacity:0.55+0.45*idx/ROWS}));
+        svg.appendChild(svgEl('circle',{cx:xm(r.est),cy:y,r:2.2,fill:col,opacity:0.55+0.45*idx/ROWS}));
+      });
+      const pct=total?100*covered/total:0;
+      document.getElementById('v-total').textContent=total.toLocaleString();
+      document.getElementById('v-cov').textContent=total?pct.toFixed(2)+'%':'—';
+      document.getElementById('v-spread').textContent=total>1?Math.sqrt(gM2/(total-1)).toFixed(5):'—';
+      document.getElementById('v-pred').textContent=SEpred.toFixed(5);
+    }
+    function add(M){
+      for(let i=0;i<M;i++){const {est,se}=runEstimator(K);
+        const cov=Math.abs(est-I)<=1.96*se; total++; if(cov)covered++;
+        recent.push({est,se,cov}); if(recent.length>ROWS)recent.shift();
+        const d=est-gM; gM+=d/total; gM2+=d*(est-gM);
+      }
+      draw();
+    }
+    function reset(){total=0;covered=0;gM=0;gM2=0;recent=[];draw();}
+    document.getElementById('v-1').onclick=()=>add(1);
+    document.getElementById('v-50').onclick=()=>add(50);
+    document.getElementById('v-2000').onclick=()=>add(2000);
+    document.getElementById('v-reset').onclick=reset;
+    add(50);
+  })();
+})();
+</script>
+
+</body>
+</html>

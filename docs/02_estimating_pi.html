@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 — Estimating π &amp; the 1/√N law — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --in:#2f9e64; --out:#e53e3e; --est:#2b6cb0; --pred:#dd6b20; --pi:#7c3aed; --gold:#d9a500;
+    --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--in)}
+  .callout.warn{border-left-color:var(--pred)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  .twocol{display:grid; grid-template-columns:1.05fr 1fr; gap:18px; align-items:start}
+  @media(max-width:680px){.twocol{grid-template-columns:1fr}}
+  input[type=range]{width:230px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:21px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Estimating π, and the 1/√N convergence law</h1>
+<p class="sub">02_estimating_pi.cpp — the “hello world” of Monte Carlo, and a hands-on look at the single most important fact about it: the error only shrinks like one over the square root of the sample count.</p>
+
+<p class="lead">Throw darts uniformly at the unit square and count how many land inside the quarter circle. The <em>fraction</em> inside estimates $\pi/4$, so four times that fraction estimates $\pi$. It is a cute trick, but its real job is to give us a concrete place to watch the law that governs every path-traced image: <strong>to halve the noise you need four times the samples.</strong></p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> A Monte Carlo estimate is an average of $N$ random samples; the Central Limit Theorem makes its error fall as $\sigma/\sqrt N$ — so the error times $\sqrt N$ settles to a constant (here $\approx1.64$) rather than to zero, and variance-reduction methods can only shrink that constant, never beat the $1/\sqrt N$ rate.
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--in)"></i> dart inside the circle (a “hit”)</span>
+  <span><i class="dot" style="background:var(--out)"></i> dart outside</span>
+  <span><i class="swatch" style="border-color:var(--est)"></i> measured error</span>
+  <span><i class="swatch" style="border-color:var(--pred)"></i> predicted $1/\sqrt N$ error</span>
+  <span><i class="swatch" style="border-color:var(--pi)"></i> true value (π)</span>
+</div>
+
+
+<h2>1. The idea: area as a probability</h2>
+
+<p>Scatter darts uniformly over the unit square $[0,1]\times[0,1]$. A dart at $(x,y)$ counts as a <strong>hit</strong> when it lands inside the quarter circle $x^2+y^2\le1$. Because the darts are uniform, the probability of a hit is just the area of the hit region divided by the area of the square:</p>
+
+$$p=\Pr[\text{hit}]=\frac{\text{area of quarter circle}}{\text{area of square}}=\frac{\pi/4}{1}=\frac{\pi}{4}\approx0.7854 .$$
+
+<p>So the observed hit fraction estimates $\pi/4$, and multiplying by four estimates $\pi$ itself.</p>
+
+<figure>
+<svg viewBox="0 0 680 250" role="img" aria-label="A unit square containing a quarter circle, with the area ratio equal to pi over four.">
+  <!-- square -->
+  <rect x="60" y="30" width="190" height="190" fill="#fff" stroke="#9aa0ad" stroke-width="1.5"/>
+  <!-- quarter disk: center bottom-left (60,220), r=190 -->
+  <path d="M60,220 L250,220 A190,190 0 0,0 60,30 Z" fill="#dff0e6" stroke="var(--in)" stroke-width="1.6"/>
+  <text x="120" y="150" font-size="14" fill="var(--in)">x²+y² ≤ 1</text>
+  <text x="200" y="210" font-size="13" fill="#8a8f9c">unit square</text>
+  <text x="55" y="235" font-size="12" fill="#8a8f9c" text-anchor="middle">0</text>
+  <text x="250" y="235" font-size="12" fill="#8a8f9c" text-anchor="middle">1</text>
+  <!-- equation -->
+  <text x="320" y="110" font-size="16" fill="var(--ink)">P(hit) =</text>
+  <line x1="392" y1="98" x2="500" y2="98" stroke="var(--ink)" stroke-width="1.3"/>
+  <text x="398" y="92" font-size="13.5" fill="var(--ink)">area of ¼ circle</text>
+  <text x="408" y="118" font-size="13.5" fill="var(--ink)">area of square</text>
+  <text x="512" y="110" font-size="16" fill="var(--ink)">=</text>
+  <text x="532" y="103" font-size="16" fill="var(--pi)">π/4</text>
+  <text x="320" y="150" font-size="15" fill="var(--ink)">π ≈ 4 × (hit fraction)</text>
+</svg>
+<figcaption>Figure 1. Uniform darts turn a geometric area into a probability. The quarter circle fills $\pi/4$ of the square, so the fraction of darts landing inside is an estimate of $\pi/4$ — and four times it is an estimate of $\pi$.</figcaption>
+</figure>
+
+
+<h2>2. It is really Monte Carlo integration</h2>
+
+<p>The dart game is a disguised integral. Define the <strong>indicator</strong> $f(x,y)=1$ when $x^2+y^2\le1$ and $0$ otherwise. Its expectation over the uniform square is exactly the area we want:</p>
+
+$$\mathbb E[f]=\int_0^1\!\!\int_0^1 f(x,y)\,dx\,dy=\frac\pi4 .$$
+
+<p>Just like example&nbsp;01, we cannot always do such an integral by hand, so we estimate the expectation by <strong>averaging samples</strong> of $f$. Each dart is one Bernoulli trial $I_i\in\{0,1\}$, and the estimator is the sample mean scaled by four:</p>
+
+$$\hat\pi_N=4\cdot\hat p_N=\frac4N\sum_{i=1}^N I_i .$$
+
+<p>It is <strong>unbiased</strong>: $\mathbb E[\hat\pi_N]=4\,\mathbb E[I_i]=4p=\pi$. On average it is right; the only question is how fast the scatter around that average shrinks.</p>
+
+
+<h2>3. Throw the darts</h2>
+
+<p>Throw a few thousand and watch the estimate jump around $\pi$. Notice it is still wobbling in the second decimal place even after thousands of darts — that sluggishness is the whole story of this page.</p>
+
+<figure>
+<div class="twocol">
+  <svg id="board" viewBox="0 0 340 340" role="img" aria-label="Dartboard: a unit square with a quarter circle and scattered darts colored by hit or miss."></svg>
+  <div>
+    <div class="panel" style="grid-template-columns:1fr">
+      <div class="row"><span>darts thrown</span><b id="d-n">0</b></div>
+      <div class="row"><span>inside the circle</span><b id="d-in">0</b></div>
+      <div class="row"><span>hit fraction</span><b id="d-frac">—</b></div>
+      <div class="row"><span>π estimate = 4×fraction</span><b id="d-est" style="color:var(--est)">—</b></div>
+      <div class="row"><span>true π</span><b style="color:var(--pi)">3.14159</b></div>
+      <div class="row"><span>error</span><b id="d-err">—</b></div>
+    </div>
+    <div class="ctl">
+      <button id="d-100">+100</button>
+      <button id="d-1000">+1,000</button>
+      <button id="d-reset">Reset</button>
+    </div>
+    <p class="small" style="margin-top:10px">The board shows up to 5,000 darts. Even there the estimate is only good to about ±0.02 — getting another digit would take a hundred times as many.</p>
+  </div>
+</div>
+<figcaption>Figure 2. Each dart is a Bernoulli trial; green ones fall inside the quarter circle. The running estimate <span style="color:var(--est)">4×(hit fraction)</span> hovers near <span style="color:var(--pi)">π</span> but stays visibly jittery — Monte Carlo error in the flesh.</figcaption>
+</figure>
+
+
+<h2>4. The 1/√N law — where the slowness comes from</h2>
+
+<p>Every Monte Carlo estimate is an average of $N$ independent samples, and the variance of an average of independent things is the per-sample variance divided by $N$:</p>
+
+$$\operatorname{Var}[\hat p_N]=\frac{\operatorname{Var}[I_i]}{N},\qquad\text{so}\qquad \operatorname{SE}[\hat p_N]=\frac{\sigma}{\sqrt N}.$$
+
+<p>The standard error — the typical size of the error — therefore carries a $1/\sqrt N$, no matter the problem. For our Bernoulli darts the per-sample variance is the textbook $p(1-p)$, so the standard error of the $\pi$ estimate is</p>
+
+$$\operatorname{SE}[\hat\pi_N]=4\sqrt{\frac{p(1-p)}{N}}=\frac{C}{\sqrt N},\qquad C=4\sqrt{p(1-p)}\approx1.642 .$$
+
+<div class="callout warn">
+<strong>The brutal arithmetic of $1/\sqrt N$.</strong> Because the error scales as $N^{-1/2}$:
+<ul style="margin:8px 0 0">
+<li>To <strong>halve</strong> the error you need <strong>4×</strong> the samples.</li>
+<li>To win <strong>one more decimal digit</strong> (10× less error) you need <strong>100×</strong> the samples.</li>
+</ul>
+This is exactly why path-traced images are noisy and why the noise is so stubborn: the noise <em>is</em> the Monte Carlo error, and it only falls off as $1/\sqrt{\text{samples per pixel}}$.
+</div>
+
+
+<h2>5. Watch the error fall — and track its prediction</h2>
+
+<p>Plotting the absolute error against $N$ on <strong>log–log</strong> axes turns the power law $\text{error}\approx C\,N^{-1/2}$ into a straight line of slope $-\tfrac12$. The measured error (blue) rattles around the predicted line (orange) — same slope, same ballpark — confirming the formula really does describe the noise.</p>
+
+<figure>
+<svg id="loglog" viewBox="0 0 600 360" role="img" aria-label="Log-log plot of absolute error versus sample count, with the predicted one-over-root-N line."></svg>
+<div class="ctl">
+  <button id="ll-run">Run</button>
+  <button id="ll-reset">Reset</button>
+  <span class="small">n = <b id="ll-n">0</b> · π̂ = <b id="ll-est">—</b> · error = <b id="ll-err">—</b> · predicted = <b id="ll-pred">—</b></span>
+</div>
+<figcaption>Figure 3. Absolute error vs. sample count on log–log axes. The orange line is the prediction $C/\sqrt N$ — a straight line of slope $-\tfrac12$. The blue measured error wanders around it but follows the same downward slope: every factor of 100 in samples buys roughly one decimal digit.</figcaption>
+</figure>
+
+
+<h2>6. error × √N: the constant that refuses to vanish</h2>
+
+<p>Here is the file’s sharpest diagnostic. If the error truly behaves like $C/\sqrt N$, then multiplying it by $\sqrt N$ should cancel the $N$-dependence and leave a flat, wobbling constant — <em>not</em> something that keeps falling toward zero. It does:</p>
+
+<figure>
+<svg id="rootn" viewBox="0 0 600 320" role="img" aria-label="error times square-root of N versus sample count, hovering around a constant."></svg>
+<div class="ctl">
+  <button id="rn-run">Run</button>
+  <button id="rn-reset">Reset</button>
+  <span class="small">latest error×√n = <b id="rn-val">—</b> · settling near C ≈ <b style="color:var(--pred)">1.64</b></span>
+</div>
+<figcaption>Figure 4. The same run, plotted as error$\times\sqrt N$. It bounces around the constant $C\approx1.64$ (orange line) and shows no downward trend — direct evidence that the error is $\propto1/\sqrt N$ and not faster. <span class="small">(Figures 3 and 4 share one dart stream; either Run drives both.)</span></figcaption>
+</figure>
+
+<div class="callout key">
+<strong>Why this matters for rendering.</strong> That flat constant $C$ is the <em>only</em> thing you can actually improve. Importance sampling, stratification, and MIS (the later examples) all shrink $C$ — sometimes dramatically — but the curve still flattens out at <em>some</em> height and the rate is still $1/\sqrt N$. No unbiased Monte Carlo method beats $1/\sqrt N$; they compete on the constant.
+</div>
+
+
+<h2>7. The price of precision</h2>
+
+<p>Invert the law to see the cost. To reach a target error $\varepsilon$ you need about $N\approx\left(C/\varepsilon\right)^2$ samples. Drag the target error and watch the required sample count explode quadratically.</p>
+
+<figure>
+<div class="ctl">
+  target error ε =
+  <input id="p-eps" type="range" min="0" max="100" value="33" step="1">
+  <span class="big" id="p-epsval">0.010</span>
+</div>
+<div class="panel" style="grid-template-columns:1fr">
+  <div class="row"><span>samples needed&nbsp; $N\approx(C/\varepsilon)^2$</span><b id="p-n" class="big">—</b></div>
+  <div class="row"><span>vs. reaching ε = 0.1</span><b id="p-ratio">—</b></div>
+  <div class="row"><span>roughly equivalent to</span><b id="p-digits">—</b></div>
+</div>
+<figcaption>Figure 5. The quadratic price of accuracy. Each 10× cut in target error multiplies the work by 100×; each halving multiplies it by 4×. This is why “just add more samples” hits a wall, and why the rest of the course is about variance reduction.</figcaption>
+</figure>
+
+
+<h2>8. The program, end to end</h2>
+
+<p>The C++ file streams 100 million darts, reporting at each decade the estimate, the actual error, the predicted error $C/\sqrt N$, and the diagnostic error$\times\sqrt N$:</p>
+
+<pre><code>Rng rng(/*sequence=*/2);
+const double p = M_PI / 4.0;                 // true hit probability
+const double C = 4.0 * sqrt(p * (1.0 - p));  // error*sqrt(N) ~ this constant (~1.64)
+
+long long inside = 0, n = 0, nextReport = 100;
+for (long long i = 0; i &lt; 100000000; ++i) {
+    float x = rng.NextFloat(), y = rng.NextFloat();
+    if (x*x + y*y &lt;= 1.0f) ++inside;         // a hit
+    ++n;
+    if (n == nextReport) {
+        double est     = 4.0 * (double)inside / n;
+        double err     = fabs(est - M_PI);
+        double predErr = C / sqrt((double)n);
+        printf("%lld  est=%.6f  err=%.6f  pred=%.6f  err*sqrtN=%.4f\n",
+               n, est, err, predErr, err * sqrt((double)n));
+        nextReport *= 10;
+    }
+}</code></pre>
+
+<p>Two things to read off the output: <code>err</code> and <code>pred</code> stay in the same ballpark (the formula works), and <code>err*sqrtN</code> wobbles around $\sim1.64$ instead of trending to zero (the rate is exactly $1/\sqrt N$).</p>
+
+
+<h2>9. Takeaways</h2>
+<ul>
+<li><strong>Geometry → probability → integral.</strong> The dart fraction estimates the area $\pi/4$; it is Monte Carlo integration of an indicator function, and the estimator $\hat\pi_N=4\hat p_N$ is unbiased.</li>
+<li><strong>Error $\propto1/\sqrt N$.</strong> Because a sample mean has variance $\sigma^2/N$, the standard error is $\sigma/\sqrt N$ — here $C/\sqrt N$ with $C=4\sqrt{p(1-p)}\approx1.64$.</li>
+<li><strong>The cost is quadratic.</strong> Halving the error costs 4× the samples; one more digit costs 100×.</li>
+<li><strong>error$\times\sqrt N$ is constant.</strong> The clearest evidence of the rate: it flattens, it does not fall.</li>
+<li><strong>Variance reduction shrinks $C$, not the exponent.</strong> Importance sampling, stratification, and MIS (later examples) lower the constant; nothing unbiased beats $1/\sqrt N$. This is the thread that runs through the whole series — and it connects back to the variance you learned to measure in example&nbsp;01.</li>
+</ul>
+
+<p class="small">References — the $1/\sqrt N$ rate is the Central Limit Theorem applied to the sample mean (see example 04). · Bernoulli standard error $\sqrt{p(1-p)/N}$ is standard; see e.g. Sheldon Ross, <em>A First Course in Probability</em>. · For Monte Carlo in rendering, Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, ch. 13 (“Monte Carlo Integration”).</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const PI=Math.PI, P=PI/4, C=4*Math.sqrt(P*(1-P));   // ≈ 1.642
+
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // ===================================================================
+  // Figure 2 — dartboard
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('board');
+    const X0=20,Y0=20,S=300, CAP=5000;
+    // backdrop: square + quarter disk (center bottom-left, radius S)
+    svg.appendChild(svgEl('path',{d:`M${X0},${Y0+S} L${X0+S},${Y0+S} A${S},${S} 0 0,0 ${X0},${Y0} Z`,fill:'#eef7f1',stroke:'var(--in)','stroke-width':1.4}));
+    svg.appendChild(svgEl('rect',{x:X0,y:Y0,width:S,height:S,fill:'none',stroke:'#9aa0ad','stroke-width':1.4}));
+    const layer=svgEl('g',{}); svg.appendChild(layer);
+    let n=0,inside=0;
+    function add(k){
+      k=Math.min(k,CAP-n);
+      for(let i=0;i<k;i++){
+        const x=Math.random(), y=Math.random();
+        const hit=x*x+y*y<=1; if(hit)inside++;
+        n++;
+        const sx=X0+x*S, sy=Y0+(1-y)*S;
+        layer.appendChild(svgEl('circle',{cx:sx.toFixed(1),cy:sy.toFixed(1),r:1.7,fill:hit?'var(--in)':'var(--out)','fill-opacity':0.72}));
+      }
+      render();
+    }
+    function render(){
+      const frac=n?inside/n:0, est=4*frac;
+      document.getElementById('d-n').textContent=n.toLocaleString();
+      document.getElementById('d-in').textContent=inside.toLocaleString();
+      document.getElementById('d-frac').textContent=n?frac.toFixed(4):'—';
+      document.getElementById('d-est').textContent=n?est.toFixed(4):'—';
+      document.getElementById('d-err').textContent=n?Math.abs(est-PI).toFixed(4):'—';
+    }
+    document.getElementById('d-100').onclick=()=>add(100);
+    document.getElementById('d-1000').onclick=()=>add(1000);
+    document.getElementById('d-reset').onclick=()=>{n=0;inside=0;layer.textContent='';render();};
+    add(1000);
+  })();
+
+  // ===================================================================
+  // Shared streaming engine for Figures 3 & 4
+  // ===================================================================
+  (function(){
+    const NMAX=1000000, NSTART=100;
+    const ll=document.getElementById('loglog'), rn=document.getElementById('rootn');
+    let n,inside,nextRec,llPts,rnPts,raf=null;
+
+    // ---- Figure 3 backdrop (log-log) ----
+    const A={X0:62,X1:560,Y0:28,Y1:300, EX0:2,EX1:6, EY0:-4,EY1:0}; // x:10^2..10^6, y:10^-4..10^0
+    const axm=n=>A.X0+(Math.log10(n)-A.EX0)/(A.EX1-A.EX0)*(A.X1-A.X0);
+    const aym=e=>A.Y1-(Math.log10(clamp(e,1e-4,1))-A.EY0)/(A.EY1-A.EY0)*(A.Y1-A.Y0);
+    function llBackdrop(){
+      ll.textContent='';
+      ll.appendChild(svgEl('line',{x1:A.X0,y1:A.Y1,x2:A.X1,y2:A.Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      ll.appendChild(svgEl('line',{x1:A.X0,y1:A.Y0,x2:A.X0,y2:A.Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let e=A.EX0;e<=A.EX1;e++){const x=axm(Math.pow(10,e));
+        ll.appendChild(svgEl('line',{x1:x,y1:A.Y0,x2:x,y2:A.Y1,stroke:'#eef0f4'}));
+        ll.appendChild(txt(x,A.Y1+16,'10^'+e,{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));}
+      for(let e=A.EY0;e<=A.EY1;e++){const y=aym(Math.pow(10,e));
+        ll.appendChild(svgEl('line',{x1:A.X0,y1:y,x2:A.X1,y2:y,stroke:'#eef0f4'}));
+        ll.appendChild(txt(A.X0-6,y+4,'10^'+e,{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'}));}
+      ll.appendChild(txt((A.X0+A.X1)/2,A.Y1+32,'number of darts N  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle'}));
+      ll.appendChild(txt(16,(A.Y0+A.Y1)/2,'absolute error  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle',transform:`rotate(-90 16 ${(A.Y0+A.Y1)/2})`}));
+      // predicted C/sqrt(N) straight line
+      ll.appendChild(polyline([[axm(100),aym(C/Math.sqrt(100))],[axm(1e6),aym(C/Math.sqrt(1e6))]],'var(--pred)',2.2,'6 4'));
+      ll.appendChild(txt(axm(3e4),aym(C/Math.sqrt(3e4))-8,'predicted  C/√N   (slope −½)',{'font-size':11.5,fill:'var(--pred)'}));
+      ll.appendChild(svgEl('g',{id:'ll-data'}));
+    }
+    // ---- Figure 4 backdrop (error*sqrtN) ----
+    const B={X0:62,X1:560,Y0:24,Y1:264, EX0:2,EX1:6, YMAX:3.5};
+    const bxm=n=>B.X0+(Math.log10(n)-B.EX0)/(B.EX1-B.EX0)*(B.X1-B.X0);
+    const bym=v=>B.Y1-clamp(v,0,B.YMAX)/B.YMAX*(B.Y1-B.Y0);
+    function rnBackdrop(){
+      rn.textContent='';
+      rn.appendChild(svgEl('line',{x1:B.X0,y1:B.Y1,x2:B.X1,y2:B.Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      rn.appendChild(svgEl('line',{x1:B.X0,y1:B.Y0,x2:B.X0,y2:B.Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let e=B.EX0;e<=B.EX1;e++){const x=bxm(Math.pow(10,e));
+        rn.appendChild(svgEl('line',{x1:x,y1:B.Y0,x2:x,y2:B.Y1,stroke:'#eef0f4'}));
+        rn.appendChild(txt(x,B.Y1+16,'10^'+e,{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));}
+      [0,1,2,3].forEach(t=>{rn.appendChild(txt(B.X0-6,bym(t)+4,t.toFixed(0),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'}));});
+      rn.appendChild(txt((B.X0+B.X1)/2,B.Y1+32,'number of darts N  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle'}));
+      rn.appendChild(txt(16,(B.Y0+B.Y1)/2,'error × √N',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle',transform:`rotate(-90 16 ${(B.Y0+B.Y1)/2})`}));
+      // constant line at C
+      rn.appendChild(svgEl('line',{x1:B.X0,y1:bym(C),x2:B.X1,y2:bym(C),stroke:'var(--pred)','stroke-width':2,'stroke-dasharray':'6 4'}));
+      rn.appendChild(txt(B.X1-2,bym(C)-7,'C ≈ '+C.toFixed(2),{'font-size':11.5,fill:'var(--pred)','text-anchor':'end'}));
+      rn.appendChild(svgEl('g',{id:'rn-data'}));
+    }
+
+    function frame(){
+      const est=4*inside/n, err=Math.abs(est-PI);
+      document.getElementById('ll-data').replaceChildren(polyline(llPts,'var(--est)',2));
+      document.getElementById('rn-data').replaceChildren(polyline(rnPts,'var(--est)',2));
+      document.getElementById('ll-n').textContent=n.toLocaleString();
+      document.getElementById('ll-est').textContent=est.toFixed(5);
+      document.getElementById('ll-err').textContent=err.toFixed(5);
+      document.getElementById('ll-pred').textContent=(C/Math.sqrt(n)).toFixed(5);
+      document.getElementById('rn-val').textContent=(err*Math.sqrt(n)).toFixed(3);
+    }
+    function step(){
+      const target=Math.min(NMAX,n+8000);
+      for(;n<target;){
+        const x=Math.random(),y=Math.random(); if(x*x+y*y<=1)inside++; n++;
+        if(n>=nextRec && n>=NSTART){
+          const est=4*inside/n, err=Math.abs(est-PI);
+          llPts.push([axm(n),aym(err)]);
+          rnPts.push([bxm(n),bym(err*Math.sqrt(n))]);
+          nextRec=Math.ceil(nextRec*Math.pow(10,1/40));
+        }
+      }
+      frame();
+      if(n<NMAX) raf=requestAnimationFrame(step); else raf=null;
+    }
+    function reset(){ if(raf){cancelAnimationFrame(raf);raf=null;}
+      n=0;inside=0;nextRec=NSTART;llPts=[];rnPts=[];
+      llBackdrop(); rnBackdrop();
+      ['ll-n','ll-est','ll-err','ll-pred','rn-val'].forEach(id=>document.getElementById(id).textContent= id==='ll-n'?'0':'—');
+    }
+    function run(){ if(raf)return; if(n>=NMAX) reset(); step(); }
+    document.getElementById('ll-run').onclick=run;
+    document.getElementById('rn-run').onclick=run;
+    document.getElementById('ll-reset').onclick=reset;
+    document.getElementById('rn-reset').onclick=reset;
+    reset();
+  })();
+
+  // ===================================================================
+  // Figure 5 — price of precision
+  // ===================================================================
+  (function(){
+    const sl=document.getElementById('p-eps');
+    // map slider 0..100 -> eps 0.1 .. 0.0001 (log)
+    const epsOf=v=>0.1*Math.pow(10,-(v/100)*3);
+    function fmtN(N){
+      if(N>=1e9) return (N/1e9).toFixed(1)+' billion';
+      if(N>=1e6) return (N/1e6).toFixed(1)+' million';
+      if(N>=1e3) return (N/1e3).toFixed(1)+' thousand';
+      return Math.round(N).toString();
+    }
+    function run(){
+      const eps=epsOf(+sl.value);
+      const N=Math.pow(C/eps,2);
+      const baseline=Math.pow(C/0.1,2);
+      document.getElementById('p-epsval').textContent=eps.toPrecision(2);
+      document.getElementById('p-n').textContent=fmtN(N)+'  ('+Math.round(N).toLocaleString()+')';
+      document.getElementById('p-ratio').textContent=(N/baseline>=1?(N/baseline).toFixed(0)+'× more':'baseline');
+      const digits=Math.max(0,Math.round(-Math.log10(eps)));
+      document.getElementById('p-digits').textContent='~'+digits+' correct decimal'+(digits===1?'':'s')+' of π';
+    }
+    sl.addEventListener('input',run);
+    run();
+  })();
+})();
+</script>
+
+</body>
+</html>

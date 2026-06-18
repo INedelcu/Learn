@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>09 — Multiple Importance Sampling — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --p1:#dd6b20; --p2:#2b6cb0; --mis:#2f9e64; --fn:#7c3aed; --true:#d9a500; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--mis)}
+  .callout.warn{border-left-color:var(--p1)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Multiple Importance Sampling (MIS)</h1>
+<p class="sub">09_multiple_importance_sampling.cpp — when no single density fits the whole integrand, use several and combine them so the result inherits the best of each — and provably never blows up.</p>
+
+<p class="lead">Importance sampling (example 06) shines when <em>one</em> density matches the integrand. But real integrands have several features at once, and a density that nails one feature can be catastrophic on another. The textbook rendering case: shading a glossy surface, you can sample the <strong>BRDF</strong> (great for sharp reflections, terrible for small bright lights) or sample the <strong>light</strong> (great for small lights, terrible for near-mirror reflections). Each strategy explodes exactly where the other excels. MIS (Veach &amp; Guibas, 1995) lets you use both and weight them so neither spike survives.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Take one sample from each strategy and combine them with weights that sum to $1$ everywhere (so it stays unbiased); the <strong>balance heuristic</strong> $w_i=p_i/\sum_j p_j$ makes each term collapse to $f/\sum_j p_j$ — a bounded weighted average — so wherever a density is tiny (and its $f/p$ would explode) its weight is equally tiny and muzzles the spike.
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--fn)"></i> target integrand $f$</span>
+  <span><i class="swatch" style="border-color:var(--p1)"></i> strategy $p_1$ (peak at 0)</span>
+  <span><i class="swatch" style="border-color:var(--p2)"></i> strategy $p_2$ (peak at 1)</span>
+  <span><i class="swatch" style="border-color:var(--mis)"></i> MIS (balance heuristic)</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> exact value</span>
+</div>
+
+
+<h2>1. The problem: each strategy fails where the other wins</h2>
+
+<p>One density can importance-sample one feature. Put two features in the integrand and any single density is starved on at least one of them — and a starved density is exactly the recipe for a variance explosion: it almost never samples that region, but when it does, $f/p$ is enormous because $p$ there is tiny.</p>
+
+<figure>
+<svg viewBox="0 0 680 210" role="img" aria-label="A glossy surface with a narrow reflection lobe and a small light: BRDF sampling misses the light, light sampling misses the lobe.">
+  <!-- surface -->
+  <line x1="40" y1="170" x2="640" y2="170" stroke="#9aa0ad" stroke-width="1.5"/>
+  <circle cx="200" cy="170" r="3" fill="#1f2430"/>
+  <!-- view ray in -->
+  <line x1="120" y1="80" x2="200" y2="170" stroke="#8a8f9c" stroke-width="1.4" stroke-dasharray="3 3"/>
+  <text x="96" y="76" font-size="12" fill="#8a8f9c">view</text>
+  <!-- narrow specular lobe (reflection dir up-right) -->
+  <path d="M200,170 L300,52 L330,72 Z" fill="#efe3fb" stroke="var(--p1)" stroke-width="1.2"/>
+  <text x="300" y="46" font-size="12.5" fill="var(--p1)">BRDF lobe</text>
+  <!-- small light off to the right -->
+  <circle cx="470" cy="70" r="9" fill="#fde8b0" stroke="var(--p2)" stroke-width="1.6"/>
+  <text x="486" y="74" font-size="12.5" fill="var(--p2)">small light</text>
+  <!-- BRDF samples (in lobe, miss light) -->
+  <g stroke="var(--p1)" stroke-width="1.2" opacity="0.8">
+    <line x1="200" y1="170" x2="296" y2="60"/><line x1="200" y1="170" x2="312" y2="64"/><line x1="200" y1="170" x2="322" y2="70"/>
+  </g>
+  <!-- light samples (aimed at light, outside lobe) -->
+  <g stroke="var(--p2)" stroke-width="1.2" opacity="0.8" stroke-dasharray="2 2">
+    <line x1="200" y1="170" x2="462" y2="74"/><line x1="200" y1="170" x2="470" y2="80"/>
+  </g>
+  <text x="340" y="150" font-size="12.5" fill="#5b6472" text-anchor="middle">BRDF rays miss the light · light rays miss the lobe · MIS uses both</text>
+</svg>
+<figcaption>Figure 1. The canonical rendering case. Sampling the <span style="color:var(--p1)">BRDF</span> sends rays into the reflection lobe (and almost never hits a small light); sampling the <span style="color:var(--p2)">light</span> aims rays at the source (and almost never lands in a sharp lobe). Whichever you pick alone is noisy in the other regime; MIS combines them.</figcaption>
+</figure>
+
+
+<h2>2. The combined, unbiased estimator</h2>
+
+<p>Take one sample from each strategy per iteration and add them up, each scaled by a weight:</p>
+
+$$F=w_1(X_1)\,\frac{f(X_1)}{p_1(X_1)}+w_2(X_2)\,\frac{f(X_2)}{p_2(X_2)},\qquad X_1\sim p_1,\ X_2\sim p_2.$$
+
+<p>As long as the weights <strong>sum to one at every point</strong>, $w_1(x)+w_2(x)=1$, the estimator is unbiased — $\mathbb E[F]=\int f$. (Each term contributes $\int w_i f$, and summing over $i$ rebuilds $\int f$.) So we are free to choose <em>any</em> partition-of-unity weights; the only question is which choice minimizes variance.</p>
+
+
+<h2>3. The balance heuristic, and why it tames spikes</h2>
+
+<p>Veach &amp; Guibas’s <strong>balance heuristic</strong> weights each strategy by how likely it was to have produced that point:</p>
+
+$$w_i(x)=\frac{p_i(x)}{p_1(x)+p_2(x)} .$$
+
+<p>Substitute it back and watch the troublesome $1/p_i$ cancel — each term becomes the same bounded quantity:</p>
+
+$$w_i(x)\,\frac{f(x)}{p_i(x)}=\frac{p_i(x)}{p_1(x)+p_2(x)}\cdot\frac{f(x)}{p_i(x)}=\frac{f(x)}{p_1(x)+p_2(x)} .$$
+
+<div class="callout key">
+<strong>The spike is muzzled.</strong> The danger in single-strategy sampling is a region where $p_i$ is tiny, so $f/p_i$ explodes. Under the balance heuristic that same term is $f/(p_1+p_2)$ — and if $p_1$ is tiny there, $p_2$ is the one that’s large, so the denominator stays healthy and the value stays bounded. The weight is small <em>exactly</em> where the naive estimator would blow up. No single sample can ever contribute a giant value.
+</div>
+
+
+<h2>4. A self-contained experiment: two peaks</h2>
+
+<p>Everything here has a closed form so we can check it. Build two sharp peaks from truncated exponentials on $[0,1]$ (sharpness $a$, normalizer $Z=1-e^{-a}$):</p>
+
+$$p_1(x)=\frac{a\,e^{-a x}}{Z}\ \text{(peak at 0)},\qquad p_2(x)=\frac{a\,e^{-a(1-x)}}{Z}\ \text{(peak at 1)},$$
+
+<p>and make the target a weighted sum of them, so the integral is exact:</p>
+
+$$f(x)=A\,p_1(x)+B\,p_2(x)\quad\Longrightarrow\quad \int_0^1 f=A+B .$$
+
+<p>With $A=1,B=4$ the answer is $5$. $p_1$ samples the left peak beautifully but is starved at the right peak (and vice versa), so each strategy alone is noisy — and MIS should fix it. Each method gets the same budget of <strong>2 samples</strong> per estimate.</p>
+
+
+<h2>5. See the spike vs. the bounded MIS term</h2>
+
+<p><em>Top:</em> the target $f$ and the two sampling densities. <em>Bottom:</em> the value each estimator assigns at $x$ — the single-strategy ratios $f/p_1$ and $f/p_2$ rocket off-scale where their density starves, while the MIS term $f/(p_1+p_2)$ stays calmly between $A$ and $B$ across the whole domain. Slide the sharpness to make the peaks (and the single-strategy spikes) more extreme.</p>
+
+<figure>
+<svg id="curves" viewBox="0 0 600 400" role="img" aria-label="Top: target and the two densities. Bottom: the per-sample estimator values, single strategies spiking and MIS bounded."></svg>
+<div class="ctl">
+  peak sharpness a = <b id="cv-aval">8</b>
+  <input id="cv-a" type="range" min="3" max="14" value="8" step="1">
+  <span class="small">(A = 1, B = 4)</span>
+</div>
+<figcaption>Figure 2. Why MIS works, as curves. <span style="color:var(--p1)">$f/p_1$</span> is fine near $x=0$ (where $p_1$ samples) but explodes toward $x=1$; <span style="color:var(--p2)">$f/p_2$</span> does the mirror image. <span style="color:var(--mis)">$f/(p_1+p_2)$</span> — the balance-heuristic term — never leaves $[A,B]$. Its boundedness is the whole point.</figcaption>
+</figure>
+
+
+<h2>6. The payoff — and a road to zero variance</h2>
+
+<p>Run many 2-sample estimates with each method. All three are unbiased (centered on $I=A+B$), but the single strategies have heavy, noisy tails from their rare giant samples, while MIS clusters tightly. Slide the peak imbalance: as $A\to B$ the MIS term $f/(p_1+p_2)$ becomes the <em>constant</em> $A$, so its variance drops all the way to <strong>zero</strong> — the same ideal limit as importance sampling, now reached by combination.</p>
+
+<figure>
+<svg id="hist" viewBox="0 0 600 380" role="img" aria-label="Three stacked histograms of estimates: p1-only, p2-only, and MIS, on a shared scale centered on the exact value."></svg>
+<div class="ctl">
+  peak split:  A = <b id="hs-aval">1.0</b>, B = <b id="hs-bval">4.0</b> &nbsp;(A+B = 5)
+  <input id="hs-a" type="range" min="5" max="45" value="10" step="1">
+  <button id="hs-2000">+2,000 estimates</button>
+  <button id="hs-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>estimates each</span><b id="hs-n">0</b></div>
+  <div class="row"><span>variance — $p_1$ only</span><b id="hs-v1" style="color:var(--p1)">—</b></div>
+  <div class="row"><span>variance — $p_2$ only</span><b id="hs-v2" style="color:var(--p2)">—</b></div>
+  <div class="row"><span>variance — MIS</span><b id="hs-vm" style="color:var(--mis)">—</b></div>
+  <div class="row"><span>MIS vs best single</span><b id="hs-red" class="big" style="color:var(--mis)">—</b></div>
+</div>
+<figcaption>Figure 3. Sampling distributions (2 samples per estimate), shared scale. The single-strategy histograms are broad with long right tails (rare giant $f/p$ values); MIS is a tight cluster on $I$. At $A=B$ the MIS term is constant and its histogram collapses to a single spike — zero variance. The variance figures below are computed <em>analytically</em> (the heavy tails make the empirical variance unreadable off a histogram); the bars are illustrative and tail-clipped at 10.</figcaption>
+</figure>
+
+
+<h2>7. The renderer’s cousins of this idea</h2>
+
+<div class="callout">
+<strong>Rendering link.</strong> The path tracer applies the same “combine strategies, weight by how likely each was” logic. In <code>Shading.hlsl</code>, each opaque hit <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Shading.hlsl#L39" target="_blank" rel="noopener">selects a lobe with probability proportional to its luminance</a> (clamped to $[0.1,0.9]$) and divides the weight by that selection probability — discrete one-sample strategy selection, where the selection pdf plays the MIS-weight role. Separately it <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Shading.hlsl#L51" target="_blank" rel="noopener">samples a light directly</a> (next-event estimation), the “sample the light” strategy from Figure 1. Full BRDF-vs-light MIS weighting is the natural next step on exactly these two strategies.
+</div>
+
+
+<h2>8. The code</h2>
+
+<pre><code>// densities, target, and samplers (truncated exponentials; p2 is the mirror of p1)
+double Z  = 1 - exp(-a);
+double p1(x){ return a*exp(-a*x)/Z; }            // peak at 0
+double p2(x){ return a*exp(-a*(1-x))/Z; }        // peak at 1
+double f (x){ return A*p1(x) + B*p2(x); }        // ∫ f = A + B
+double sampleP1(){ return -log(1 - U()*Z)/a; }   // invert the CDF
+double sampleP2(){ return 1 - sampleP1(); }      // mirror
+
+// (1) p1 only:  2 samples, average f/p1   (3) MIS: 1 from each, balance heuristic
+estOnly1 = 0.5*( f(xa)/p1(xa) + f(xb)/p1(xb) );
+double x1 = sampleP1(), x2 = sampleP2();
+double w1 = p1(x1)/(p1(x1)+p2(x1));
+double w2 = p2(x2)/(p1(x2)+p2(x2));
+estMIS = w1*f(x1)/p1(x1) + w2*f(x2)/p2(x2);      // = f(x1)/(p1+p2) + f(x2)/(p1+p2)</code></pre>
+
+<p>Output (5M trials): all three means hit $5$, but MIS variance (≈ $0.24$) is about <strong>2000× below the best single strategy</strong> — $p_2$-only ≈ $480$, $p_1$-only ≈ $8000$ — and with $A=B$ it is exactly zero.</p>
+
+
+<h2>9. Takeaways</h2>
+<ul>
+<li><strong>One density isn’t enough</strong> for multi-feature integrands; each importance strategy explodes where it starves.</li>
+<li><strong>MIS combines strategies</strong> with partition-of-unity weights ($\sum_i w_i=1$), keeping the estimator unbiased.</li>
+<li><strong>The balance heuristic</strong> $w_i=p_i/\sum_j p_j$ collapses each term to the bounded $f/\sum_j p_j$ — small weight exactly where $f/p_i$ would blow up.</li>
+<li><strong>Robust by design.</strong> MIS provably never does much worse than the best single strategy, and is typically far better; here ~2000× lower variance than the best single strategy, and exactly zero when the peaks are balanced.</li>
+<li><strong>It’s the BRDF-vs-light combination</strong> of real path tracers, and a cousin of the renderer’s per-hit luminance-weighted lobe selection.</li>
+</ul>
+
+<p class="small">References — E. Veach &amp; L. Guibas, <em>Optimally Combining Sampling Techniques for Monte Carlo Rendering</em>, SIGGRAPH 1995 (the balance and power heuristics); Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.10.1. The power heuristic ($w_i\propto p_i^\beta$, $\beta=2$) often beats the balance heuristic slightly. Lobe selection / NEE in the renderer: <code>Shading.hlsl</code> (<a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Shading.hlsl#L39" target="_blank" rel="noopener">L39</a>, <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Shading.hlsl#L51" target="_blank" rel="noopener">L51</a>).</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // shared model
+  function model(a,A,B){
+    const Z=1-Math.exp(-a);
+    const p1=x=>a*Math.exp(-a*x)/Z;
+    const p2=x=>a*Math.exp(-a*(1-x))/Z;
+    const f =x=>A*p1(x)+B*p2(x);
+    const sampleP1=()=>-Math.log(1-Math.random()*Z)/a;
+    const sampleP2=()=>1-(-Math.log(1-Math.random()*Z)/a);
+    return {Z,p1,p2,f,sampleP1,sampleP2};
+  }
+
+  // ===================================================================
+  // Figure 2 — functions + estimator curves
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('curves');
+    const X0=52,X1=566;
+    const TY0=28,TY1=176;     // top: densities + f
+    const BY0=222,BY1=348;    // bottom: estimator values
+    let a=8; const A=1,B=4;
+    const xm=x=>X0+x*(X1-X0);
+    function draw(){
+      const m=model(a,A,B); svg.textContent='';
+      // ----- top: f, p1, p2 (scaled to fit) -----
+      let fmax=0; for(let i=0;i<=200;i++){fmax=Math.max(fmax,m.f(i/200));}
+      const ty=v=>TY1-clamp(v,0,fmax)/fmax*(TY1-TY0);
+      svg.appendChild(svgEl('line',{x1:X0,y1:TY1,x2:X1,y2:TY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:TY0,x2:X0,y2:TY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      const pf=[],pp1=[],pp2=[];
+      for(let i=0;i<=200;i++){const x=i/200; pf.push([xm(x),ty(m.f(x))]); pp1.push([xm(x),ty(m.p1(x))]); pp2.push([xm(x),ty(m.p2(x))]);}
+      svg.appendChild(polyline(pp1,'var(--p1)',1.8,'4 3'));
+      svg.appendChild(polyline(pp2,'var(--p2)',1.8,'4 3'));
+      svg.appendChild(polyline(pf,'var(--fn)',2.4));
+      svg.appendChild(txt(X0+6,TY0+12,'target f and densities p₁, p₂',{'font-size':11.5,fill:'#5b6472'}));
+      svg.appendChild(txt(xm(0.04),ty(m.p1(0.04))-4,'p₁',{'font-size':11,fill:'var(--p1)'}));
+      svg.appendChild(txt(xm(0.93),ty(m.p2(0.96))-4,'p₂',{'font-size':11,fill:'var(--p2)'}));
+      svg.appendChild(txt(xm(0.85),ty(m.f(0.9))-6,'f',{'font-size':12,fill:'var(--fn)','font-weight':600}));
+      // ----- bottom: estimator values, capped -----
+      const VCAP=B+8;  // y range 0..VCAP, single-strategy curves clip
+      const by=v=>BY1-clamp(v,0,VCAP)/VCAP*(BY1-BY0);
+      svg.appendChild(svgEl('line',{x1:X0,y1:BY1,x2:X1,y2:BY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:BY0,x2:X0,y2:BY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      // A and B guide lines
+      [['A',A],['B',B]].forEach(([lab,v])=>{svg.appendChild(svgEl('line',{x1:X0,y1:by(v),x2:X1,y2:by(v),stroke:'#e6e8ee','stroke-width':1}));svg.appendChild(txt(X1-2,by(v)-3,lab+' = '+v,{'font-size':10,fill:'#aeb4bf','text-anchor':'end'}));});
+      const e1=[],e2=[],em=[];
+      for(let i=0;i<=240;i++){const x=i/240; e1.push([xm(x),by(m.f(x)/m.p1(x))]); e2.push([xm(x),by(m.f(x)/m.p2(x))]); em.push([xm(x),by(m.f(x)/(m.p1(x)+m.p2(x)))]);}
+      svg.appendChild(polyline(e1,'var(--p1)',2));
+      svg.appendChild(polyline(e2,'var(--p2)',2));
+      svg.appendChild(polyline(em,'var(--mis)',2.6));
+      // spike arrows
+      svg.appendChild(txt(xm(0.985),BY0+12,'f/p₁ → ∞',{'font-size':11,fill:'var(--p1)','text-anchor':'end'}));
+      svg.appendChild(txt(xm(0.015),BY0+12,'f/p₂ → ∞',{'font-size':11,fill:'var(--p2)'}));
+      svg.appendChild(txt(xm(0.5),by(m.f(0.5)/(m.p1(0.5)+m.p2(0.5)))-8,'f/(p₁+p₂) — bounded',{'font-size':11.5,fill:'var(--mis)','text-anchor':'middle','font-weight':600}));
+      [0,0.5,1].forEach(v=>svg.appendChild(txt(xm(v),BY1+16,v.toFixed(1),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'})));
+      svg.appendChild(txt((X0+X1)/2,BY1+36,'x  —  per-sample estimator value f/p',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      document.getElementById('cv-aval').textContent=a;
+    }
+    const sl=document.getElementById('cv-a');
+    sl.addEventListener('input',()=>{a=+sl.value;draw();});
+    draw();
+  })();
+
+  // ===================================================================
+  // Figure 3 — variance histograms (p1 only / p2 only / MIS)
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('hist');
+    const X0=48,X1=566, NB=56, VMAX=10;     // estimate-value axis 0..10, I=5
+    const rows=[[28,110,'var(--p1)','sample p₁ only'],[140,222,'var(--p2)','sample p₂ only'],[252,334,'var(--mis)','MIS (balance)']];
+    const a=8; let A=1,B=4; const I=5;
+    let c=[0,1,2].map(()=>new Array(NB).fill(0)), total=0, av={varOnly1:0,varOnly2:0,varMIS:0};
+    const xm=v=>X0+clamp(v,0,VMAX)/VMAX*(X1-X0);
+    // exact (analytic) variances via Simpson — the empirical ones are too heavy-tailed to read off the histogram
+    function simpson(g,n){let s=0,h=1/n;for(let i=0;i<=n;i++){const x=i*h;const w=(i===0||i===n)?1:(i%2?4:2);s+=w*g(x);}return s*h/3;}
+    function analytic(){
+      const m=model(a,A,B);
+      const Ey2_1=simpson(x=>{const f=m.f(x);return f*f/m.p1(x);},4000);
+      const Ey2_2=simpson(x=>{const f=m.f(x);return f*f/m.p2(x);},4000);
+      const Et1=simpson(x=>m.f(x)/(m.p1(x)+m.p2(x))*m.p1(x),4000);
+      const Et2=simpson(x=>m.f(x)/(m.p1(x)+m.p2(x))*m.p2(x),4000);
+      const Et1s=simpson(x=>{const t=m.f(x)/(m.p1(x)+m.p2(x));return t*t*m.p1(x);},4000);
+      const Et2s=simpson(x=>{const t=m.f(x)/(m.p1(x)+m.p2(x));return t*t*m.p2(x);},4000);
+      return {varOnly1:Math.max(0,0.5*(Ey2_1-I*I)), varOnly2:Math.max(0,0.5*(Ey2_2-I*I)), varMIS:Math.max(0,(Et1s-Et1*Et1)+(Et2s-Et2*Et2))};
+    }
+    function estimates(){
+      const m=model(a,A,B);
+      const xa=m.sampleP1(), xb=m.sampleP1(); const e1=0.5*(m.f(xa)/m.p1(xa)+m.f(xb)/m.p1(xb));
+      const ya=m.sampleP2(), yb=m.sampleP2(); const e2=0.5*(m.f(ya)/m.p2(ya)+m.f(yb)/m.p2(yb));
+      const x1=m.sampleP1(), x2=m.sampleP2();
+      const em=m.f(x1)/(m.p1(x1)+m.p2(x1)) + m.f(x2)/(m.p1(x2)+m.p2(x2));
+      return [e1,e2,em];
+    }
+    function panel(y0,y1,counts,color,label){
+      let maxC=0;for(const v of counts)maxC=Math.max(maxC,v);const CMAX=Math.max(maxC,1)*1.12;
+      const ym=v=>y1-clamp(v,0,CMAX)/CMAX*(y1-y0);
+      svg.appendChild(svgEl('line',{x1:X0,y1:y1,x2:X1,y2:y1,stroke:'#cbd0d9','stroke-width':1.1}));
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const x0=X0+(b/NB)*(X1-X0),w=(X1-X0)/NB;
+        svg.appendChild(svgEl('rect',{x:x0+0.4,y:ym(counts[b]),width:Math.max(0.5,w-0.8),height:y1-ym(counts[b]),fill:color,'fill-opacity':0.32,stroke:color,'stroke-width':0.5}));}
+      svg.appendChild(svgEl('line',{x1:xm(I),y1:y0,x2:xm(I),y2:y1,stroke:'var(--true)','stroke-width':1.6}));
+      svg.appendChild(txt(X0+6,y0+12,label,{'font-size':11.5,fill:color,'font-weight':600}));
+    }
+    function draw(){
+      svg.textContent='';
+      svg.appendChild(txt(xm(I),16,'exact I = A+B = 5',{'font-size':11,fill:'var(--true)','text-anchor':'middle'}));
+      rows.forEach((r,i)=>panel(r[0],r[1],c[i],r[2],r[3]));
+      [0,2,4,5,6,8,10].forEach(v=>svg.appendChild(txt(xm(v),rows[2][1]+15,v.toString(),{'font-size':10,fill:'#8a8f9c','text-anchor':'middle'})));
+      svg.appendChild(txt((X0+X1)/2,rows[2][1]+30,'estimate value  (heavy right tails clipped at 10)',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      document.getElementById('hs-n').textContent=total.toLocaleString();
+      document.getElementById('hs-v1').textContent=av.varOnly1.toExponential(2);
+      document.getElementById('hs-v2').textContent=av.varOnly2.toExponential(2);
+      document.getElementById('hs-vm').textContent=av.varMIS<1e-7?'~0 (zero)':av.varMIS.toExponential(2);
+      document.getElementById('hs-red').textContent=av.varMIS<1e-7?'∞ (zero!)':Math.round(Math.min(av.varOnly1,av.varOnly2)/av.varMIS).toLocaleString()+'×';
+    }
+    function add(M){
+      for(let k=0;k<M;k++){const e=estimates(); total++;
+        for(let i=0;i<3;i++){const b=Math.floor(clamp(e[i],0,VMAX-1e-9)/VMAX*NB); c[i][b]++;}
+      }
+      draw();
+    }
+    function reset(){c=[0,1,2].map(()=>new Array(NB).fill(0));total=0;draw();}
+    const sl=document.getElementById('hs-a');
+    function setA(){A=+sl.value/10; B=5-A; document.getElementById('hs-aval').textContent=A.toFixed(1); document.getElementById('hs-bval').textContent=B.toFixed(1); av=analytic(); reset(); add(2000);}
+    sl.addEventListener('input',setA);
+    document.getElementById('hs-2000').onclick=()=>add(2000);
+    document.getElementById('hs-reset').onclick=reset;
+    setA();
+  })();
+})();
+</script>
+
+</body>
+</html>

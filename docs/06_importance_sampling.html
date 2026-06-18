@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 — Importance sampling — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --f:#2b6cb0; --p:#7c3aed; --ratio:#dd6b20; --true:#2f9e64; --imp:#7c3aed; --uni:#2b6cb0; --gold:#d9a500;
+    --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--true)}
+  .callout.warn{border-left-color:var(--ratio)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Importance sampling</h1>
+<p class="sub">06_importance_sampling.cpp — the single biggest lever on Monte Carlo noise: spend your samples where the integrand is big by choosing a sampling density shaped like it.</p>
+
+<p class="lead">Example 03 showed that the estimator $\frac1N\sum f(X_i)/p(X_i)$ is unbiased for <em>any</em> density $p$. Example 05 showed how to actually draw from a non-uniform $p$. Now we cash that in: by choosing $p$ to resemble $f$, the ratio $f/p$ barely varies from sample to sample, the average stops fluctuating, and the variance — the noise — collapses. This is the same move a path tracer makes when it samples the BRDF lobes instead of firing rays blindly.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> The estimator averages the ratio $f(X)/p(X)$; if $p$ is shaped like $f$ that ratio is nearly constant so its variance is small, and in the unreachable ideal $p=f/I$ the ratio is exactly $I$ every time (zero variance) — so picking $p$ to track where $f$ is large cuts noise dramatically <em>without</em> introducing any bias.
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--f)"></i> integrand $f(x)=e^x$</span>
+  <span><i class="swatch" style="border-color:var(--p)"></i> sampling density $p(x)$</span>
+  <span><i class="swatch" style="border-color:var(--ratio)"></i> ratio $f/p$ (what gets averaged)</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> true value $I=e-1$</span>
+</div>
+
+
+<h2>1. The lever: any $p$ is unbiased, but not equally noisy</h2>
+
+<p>Recall the general estimator and its mean from example 03 — unbiased for any valid $p$:</p>
+
+$$I=\int f(x)\,dx=\mathbb E_{X\sim p}\!\left[\frac{f(X)}{p(X)}\right].$$
+
+<p>Example 04 then told us the noise is set by the <em>variance</em> of the thing being averaged, here the per-sample value $Y=f(X)/p(X)$. So the bias is fixed (zero) no matter what $p$ we pick — but the variance $\operatorname{Var}[Y]$, and therefore the noise, is entirely ours to control through $p$.</p>
+
+
+<h2>2. The idea: flatten the ratio $f/p$</h2>
+
+<p>$\operatorname{Var}[Y]$ measures how much $f(X)/p(X)$ jumps around as $X$ varies. Two extremes make it concrete:</p>
+
+<ul>
+<li><strong>Uniform $p=1$:</strong> the ratio is just $f(x)=e^x$, which sweeps from $1$ to $2.718$ — a lot of variation, so a lot of noise.</li>
+<li><strong>Ideal $p(x)=f(x)/I$:</strong> then $f/p = I$ for <em>every</em> $x$ — a flat line, zero variance. The catch: building this $p$ needs the answer $I$, which is what we’re trying to compute. But it shows the target — <em>make $p$ proportional to $f$</em> — and any $p$ that roughly tracks $f$’s shape moves you toward it.</li>
+</ul>
+
+<p>Switch the sampling density below and watch two things. <em>Top:</em> the density (scaled by $I$) try to overlay the integrand — the ideal lands exactly on it. <em>Bottom:</em> the ratio $f/p$ that actually gets averaged flattens toward the constant $I$, its variance shrinking. The tick strip shows where samples drawn from that $p$ land — clustering toward the right, where $e^x$ is big.</p>
+
+<figure>
+<svg id="ratio" viewBox="0 0 600 400" role="img" aria-label="Top: integrand and scaled density. Middle: the ratio f over p flattening. Bottom: where samples land."></svg>
+<div class="ctl">
+  density $p$:
+  <button id="rt-uni" class="sel">uniform  p = 1</button>
+  <button id="rt-lin">matched line  p = ⅔(1+x)</button>
+  <button id="rt-ideal">ideal  p = eˣ/(e−1)</button>
+</div>
+<div class="panel" style="grid-template-columns:1fr 1fr 1fr">
+  <div class="row"><span>variance of $f/p$</span><b id="rt-var" style="color:var(--ratio)">—</b></div>
+  <div class="row"><span>vs uniform</span><b id="rt-red" style="color:var(--true)">—</b></div>
+  <div class="row"><span>ratio range</span><b id="rt-range">—</b></div>
+</div>
+<figcaption>Figure 1. Importance sampling tries to make the (scaled) density match the integrand so that the ratio $f/p$ is flat. Uniform leaves the full swing of $e^x$ in the ratio; the matched line tames most of it; the ideal $p\propto e^x$ flattens it completely — the variance readout falls to zero.</figcaption>
+</figure>
+
+
+<h2>3. The experiment: uniform vs. a matched line</h2>
+
+<p>The file integrates $f(x)=e^x$ on $[0,1]$ (exact $I=e-1\approx1.7182818$) two ways with the same sample budget:</p>
+
+<ol>
+<li><strong>Uniform:</strong> $p(x)=1$, so the per-sample value is just $e^X$.</li>
+<li><strong>Importance:</strong> $p(x)=\tfrac23(1+x)$ — a straight line that leans the same way $e^x$ does. It is easy to sample by inversion (example 05): its CDF is $P(x)=\tfrac{x+x^2/2}{3/2}$, and solving $P(X)=U$ gives</li>
+</ol>
+
+$$X=-1+\sqrt{1+3U}.$$
+
+<p>The per-sample variances come out to roughly</p>
+
+$$\operatorname{Var}_{\text{uniform}}\approx0.242,\qquad \operatorname{Var}_{\text{importance}}\approx0.027,$$
+
+<p>about a <strong>9× reduction</strong> from one crude linear density. Since the standard error is $\sqrt{\operatorname{Var}/N}$, that is $\sqrt9\approx3\times$ lower noise for the same $N$ — equivalently, uniform would need ~9× as many samples to match the accuracy.</p>
+
+<p>See it as noise. Below, many independent estimates (each $K$ samples) are histogrammed for both methods. Both bells sit on the true $I$ (still unbiased!), but the importance histogram is far narrower — that width difference <em>is</em> the variance reduction.</p>
+
+<figure>
+<svg id="cmp" viewBox="0 0 600 330" role="img" aria-label="Two stacked histograms of estimates, uniform wide and importance narrow, both centered on the true value."></svg>
+<div class="ctl">
+  samples per estimate K = <b id="cm-kval">1000</b>
+  <input id="cm-k" type="range" min="100" max="2000" value="1000" step="100">
+  <button id="cm-200">+200 estimates</button>
+  <button id="cm-2000">+2,000</button>
+  <button id="cm-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>estimates each</span><b id="cm-n">0</b></div>
+  <div class="row"><span>spread — uniform</span><b id="cm-su" style="color:var(--uni)">—</b></div>
+  <div class="row"><span>spread — importance</span><b id="cm-si" style="color:var(--imp)">—</b></div>
+  <div class="row"><span>variance reduction</span><b id="cm-red" class="big" style="color:var(--true)">—</b></div>
+</div>
+<figcaption>Figure 2. Sampling distributions of the two estimators ($K$ samples each), drawn on a shared scale. Both center on $I=e-1$ — importance sampling is unbiased — but its spread is about $3\times$ tighter, i.e. ~$9\times$ less variance. Same cost, far less noise.</figcaption>
+</figure>
+
+
+<h2>4. This is what the path tracer does</h2>
+
+<p>The renderer never fires rays uniformly over the hemisphere. A BRDF concentrates outgoing energy in particular directions — a sharp specular lobe, or the cosine-weighted diffuse lobe — and uniform directions would mostly sample directions that contribute almost nothing, leaving the few important ones under-sampled and noisy. Instead it draws directions from a density shaped like the lobe:</p>
+
+<div class="callout">
+<strong>Rendering link.</strong> In <code>BRDF.hlsl</code>, <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/BRDF.hlsl#L112" target="_blank" rel="noopener"><code>SampleSpecularGGX</code></a> draws directions from the GGX/VNDF distribution and <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/BRDF.hlsl#L148" target="_blank" rel="noopener"><code>SampleDiffuseLambert</code></a> draws cosine-weighted directions — each is an importance density $p(\omega)$ chosen to match its lobe. The Monte Carlo weight then becomes the flat-ish ratio $f_r\,L_i\cos\theta / p(\omega)$, exactly the $f/p$ of this page. Good lobe sampling is the difference between a clean render and a blizzard of fireflies.
+</div>
+
+
+<h2>5. The code</h2>
+
+<p>Two Welford passes (example 01) accumulate the per-sample <em>variance</em> of each method’s estimator value, then compare:</p>
+
+<pre><code>auto f    = [](double x){ return std::exp(x); };
+auto pImp = [](double x){ return (2.0/3.0)*(1.0 + x); };           // density ∝ leans like e^x
+auto sampleImp = [&]{ return -1.0 + std::sqrt(1.0 + 3.0*rng.NextFloat()); };  // inversion
+
+// Method 1 — uniform:      Y = f(X)/1
+for (i ...) { double x = rng.NextFloat();  double est = f(x);          /* Welford on est */ }
+double var1 = s1/(kN-1);
+
+// Method 2 — importance:   Y = f(X)/pImp(X),  X ~ pImp
+for (i ...) { double x = sampleImp();      double est = f(x)/pImp(x);  /* Welford on est */ }
+double var2 = s2/(kN-1);
+
+printf("variance reduction factor: %.2fx\n", var1/var2);              // ~9x</code></pre>
+
+<p>Both <code>m1</code> and <code>m2</code> print the same $\approx1.71828$ (unbiased); only the variances differ — <code>var1/var2 ≈ 9</code>.</p>
+
+
+<h2>6. Takeaways</h2>
+<ul>
+<li><strong>Choosing $p$ is the noise knob.</strong> Every $p&gt;0$ on $f$’s support is unbiased; the variance — and only the variance — depends on $p$.</li>
+<li><strong>Match $p$ to $f$.</strong> The flatter the ratio $f/p$, the lower the variance. Sampling where the integrand is large is importance sampling.</li>
+<li><strong>Zero-variance ideal.</strong> $p=f/I$ makes $f/p\equiv I$ — unattainable (needs $I$), but it sets the direction: the closer $p\propto f$, the better.</li>
+<li><strong>Big, cheap win.</strong> A crude linear $p$ already gave ~9× variance reduction (~3× less noise) here; a tighter match does even better.</li>
+<li><strong>It powers the renderer.</strong> GGX and cosine lobe sampling are importance sampling of the BRDF; the leftover ratio $f_r L_i\cos\theta/p(\omega)$ is the same $f/p$. When one $p$ can’t cover everything, you combine several — multiple importance sampling (later examples).</li>
+</ul>
+
+<p class="small">References — importance sampling is standard Monte Carlo; see Owen, <em>Monte Carlo theory, methods and examples</em>, ch. 9, and Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.10. BRDF importance sampling in the renderer: <code>BRDF.hlsl</code> (<a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/BRDF.hlsl#L112" target="_blank" rel="noopener">SampleSpecularGGX</a>, <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/BRDF.hlsl#L148" target="_blank" rel="noopener">SampleDiffuseLambert</a>); VNDF sampling follows Heitz 2018.</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const E=Math.E, I=E-1;
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // analytic per-sample variance:  Var[f/p] = ∫ f(x)^2/p(x) dx − I^2   (Simpson)
+  function varOf(pf){
+    const n=400,h=1/n; let s=0;
+    for(let i=0;i<=n;i++){const x=i*h; const v=Math.exp(2*x)/pf(x); const w=(i===0||i===n)?1:(i%2?4:2); s+=w*v;}
+    return Math.max(0,(h/3)*s - I*I);
+  }
+
+  const modes={
+    uni:  {p:x=>1,               inv:u=>u,                          lab:'uniform  p = 1'},
+    lin:  {p:x=>(2/3)*(1+x),     inv:u=>-1+Math.sqrt(1+3*u),        lab:'matched line  p = ⅔(1+x)'},
+    ideal:{p:x=>Math.exp(x)/I,   inv:u=>Math.log(1+u*I),            lab:'ideal  p = eˣ/(e−1)'}
+  };
+  const VAR_UNI=varOf(modes.uni.p);
+
+  // ===================================================================
+  // Figure 1 — ratio flattening
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('ratio');
+    const X0=60,X1=560;
+    const TY0=30,TY1=168, FMAX=2.9;        // top: f and I*p
+    const RY0=210,RY1=320, RMAX=3.0;       // middle: ratio f/p
+    const SY=362;                          // sample tick strip
+    const xm=x=>X0+x*(X1-X0);
+    const fy=v=>TY1-clamp(v,0,FMAX)/FMAX*(TY1-TY0);
+    const ry=v=>RY1-clamp(v,0,RMAX)/RMAX*(RY1-RY0);
+    let mode='uni';
+    function draw(){
+      const m=modes[mode]; svg.textContent='';
+      // ---- top panel ----
+      svg.appendChild(svgEl('line',{x1:X0,y1:TY1,x2:X1,y2:TY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:TY0,x2:X0,y2:TY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      const fpts=[],spts=[];
+      for(let i=0;i<=120;i++){const x=i/120; fpts.push([xm(x),fy(Math.exp(x))]); spts.push([xm(x),fy(I*m.p(x))]);}
+      svg.appendChild(polyline(spts,'var(--p)',2.4,'5 4'));          // scaled density I*p
+      svg.appendChild(polyline(fpts,'var(--f)',2.4));                // integrand f
+      svg.appendChild(txt(xm(0.5),fy(Math.exp(0.5))-8,'f(x)=eˣ',{'font-size':12,fill:'var(--f)'}));
+      svg.appendChild(txt(xm(0.06),fy(I*m.p(0.06))+(mode==='ideal'?16:-6),'I·p(x)',{'font-size':11.5,fill:'var(--p)'}));
+      svg.appendChild(txt((X0+X1)/2,TY0+2,'density (scaled) tries to match the integrand',{'font-size':11.5,fill:'#8a8f9c','text-anchor':'middle'}));
+      // ---- middle panel: ratio ----
+      svg.appendChild(svgEl('line',{x1:X0,y1:RY1,x2:X1,y2:RY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:RY0,x2:X0,y2:RY1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:ry(I),x2:X1,y2:ry(I),stroke:'var(--true)','stroke-width':1.4,'stroke-dasharray':'5 4'}));
+      svg.appendChild(txt(X1-2,ry(I)-6,'constant I = 1.718',{'font-size':11,fill:'var(--true)','text-anchor':'end'}));
+      let rmin=Infinity,rmax=-Infinity; const rpts=[];
+      for(let i=0;i<=120;i++){const x=i/120; const r=Math.exp(x)/m.p(x); rmin=Math.min(rmin,r); rmax=Math.max(rmax,r); rpts.push([xm(x),ry(r)]);}
+      svg.appendChild(polyline(rpts,'var(--ratio)',2.6));
+      svg.appendChild(txt(X0+6,RY0+12,'ratio  f(x)/p(x)  — this is what gets averaged',{'font-size':11.5,fill:'var(--ratio)'}));
+      // ---- sample strip ----
+      svg.appendChild(txt(X0,SY-12,'where samples land (drawn from p):',{'font-size':11,fill:'#8a8f9c'}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:SY,x2:X1,y2:SY,stroke:'#e1e4ea','stroke-width':1}));
+      for(let i=0;i<90;i++){const x=clamp(m.inv(Math.random()),0,1);
+        svg.appendChild(svgEl('line',{x1:xm(x),y1:SY-6,x2:xm(x),y2:SY+6,stroke:'var(--p)','stroke-width':1,'stroke-opacity':0.5}));}
+      // readouts
+      const v=varOf(m.p);
+      document.getElementById('rt-var').textContent=v.toFixed(4);
+      document.getElementById('rt-red').textContent=v>1e-6?(VAR_UNI/v).toFixed(1)+'× less':'∞ (zero variance)';
+      document.getElementById('rt-range').textContent='['+rmin.toFixed(2)+', '+rmax.toFixed(2)+']';
+    }
+    const btn={uni:'rt-uni',lin:'rt-lin',ideal:'rt-ideal'};
+    Object.keys(btn).forEach(k=>document.getElementById(btn[k]).onclick=()=>{
+      mode=k; Object.values(btn).forEach(id=>document.getElementById(id).classList.remove('sel'));
+      document.getElementById(btn[k]).classList.add('sel'); draw();});
+    draw();
+  })();
+
+  // ===================================================================
+  // Figure 2 — sampling-distribution comparison
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('cmp');
+    const X0=54,X1=566, NB=51;
+    const UY0=24,UY1=146;     // uniform histogram panel
+    const IY0=168,IY1=290;    // importance histogram panel
+    let K=1000, LO,HI,bw, cu=new Array(NB).fill(0), ci=new Array(NB).fill(0), total=0;
+    let mu=0,m2u=0, mi=0,m2i=0;   // Welford spreads for each method
+    const xm=v=>X0+(clamp(v,LO,HI)-LO)/(HI-LO)*(X1-X0);
+    function estUniform(){let m=0;for(let i=0;i<K;i++)m+=Math.exp(Math.random());return m/K;}
+    function estImportance(){let m=0;for(let i=0;i<K;i++){const x=-1+Math.sqrt(1+3*Math.random()); m+=Math.exp(x)/((2/3)*(1+x));}return m/K;}
+    function setRange(){const SEu=Math.sqrt(VAR_UNI/K); LO=I-4*SEu; HI=I+4*SEu; bw=(HI-LO)/NB;}
+    function panel(y0,y1,counts,color,label){
+      let maxC=0; for(const c of counts)maxC=Math.max(maxC,c); const CMAX=Math.max(maxC,1)*1.12;
+      const ym=c=>y1-clamp(c,0,CMAX)/CMAX*(y1-y0);
+      svg.appendChild(svgEl('line',{x1:X0,y1:y1,x2:X1,y2:y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const x0=X0+(b/NB)*(X1-X0),w=(X1-X0)/NB;
+        svg.appendChild(svgEl('rect',{x:x0+0.4,y:ym(counts[b]),width:Math.max(0.4,w-0.8),height:y1-ym(counts[b]),fill:color,'fill-opacity':0.30,stroke:color,'stroke-width':0.5}));}
+      svg.appendChild(svgEl('line',{x1:xm(I),y1:y0,x2:xm(I),y2:y1,stroke:'var(--true)','stroke-width':1.8}));
+      svg.appendChild(txt(X0+6,y0+13,label,{'font-size':12,fill:color,'font-weight':600}));
+    }
+    function draw(){
+      svg.textContent='';
+      svg.appendChild(txt(xm(I),15,'I = e−1',{'font-size':11,fill:'var(--true)','text-anchor':'middle'}));   // top margin, labels the shared line
+      panel(UY0,UY1,cu,'var(--uni)','uniform  p = 1');
+      panel(IY0,IY1,ci,'var(--imp)','importance  p = ⅔(1+x)');
+      svg.appendChild(txt((X0+X1)/2,IY1+22,'estimate value  (shared scale, ±4 uniform SE)',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      const su=total>1?Math.sqrt(m2u/(total-1)):0, si=total>1?Math.sqrt(m2i/(total-1)):0;
+      document.getElementById('cm-n').textContent=total.toLocaleString();
+      document.getElementById('cm-su').textContent=total?su.toFixed(5):'—';
+      document.getElementById('cm-si').textContent=total?si.toFixed(5):'—';
+      document.getElementById('cm-red').textContent=(total>1&&si>0)?((su*su)/(si*si)).toFixed(1)+'×':'—';
+    }
+    function add(M){
+      for(let k=0;k<M;k++){
+        const eu=estUniform(), ei=estImportance(); total++;
+        let b=Math.floor((eu-LO)/bw); if(b>=0&&b<NB)cu[b]++;
+        b=Math.floor((ei-LO)/bw); if(b>=0&&b<NB)ci[b]++;
+        let d=eu-mu; mu+=d/total; m2u+=d*(eu-mu);
+        d=ei-mi; mi+=d/total; m2i+=d*(ei-mi);
+      }
+      draw();
+    }
+    function reset(){setRange();cu=new Array(NB).fill(0);ci=new Array(NB).fill(0);total=0;mu=0;m2u=0;mi=0;m2i=0;draw();}
+    document.getElementById('cm-200').onclick=()=>add(200);
+    document.getElementById('cm-2000').onclick=()=>add(2000);
+    document.getElementById('cm-reset').onclick=reset;
+    const sl=document.getElementById('cm-k');
+    sl.addEventListener('input',()=>{K=+sl.value;document.getElementById('cm-kval').textContent=K;reset();});
+    setRange(); add(2000);
+  })();
+})();
+</script>
+
+</body>
+</html>

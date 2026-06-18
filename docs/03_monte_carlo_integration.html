@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 — The Monte Carlo integration estimator — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --fn:#2b6cb0; --true:#2f9e64; --samp:#dd6b20; --rect:#7c3aed; --area:#dbe7f3; --gold:#d9a500;
+    --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--true)}
+  .callout.warn{border-left-color:var(--samp)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  .twocol{display:grid; grid-template-columns:1.1fr 1fr; gap:18px; align-items:start}
+  @media(max-width:680px){.twocol{grid-template-columns:1fr}}
+  input[type=range]{width:230px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>The Monte Carlo integration estimator</h1>
+<p class="sub">03_monte_carlo_integration.cpp — the one formula behind the whole field: turn a definite integral into the average of random samples, scaled by their probability density.</p>
+
+<p class="lead">Examples 01 and 02 estimated specific quantities — a mean, the area $\pi/4$. This file states the general tool they were secretly using. To compute a definite integral $I=\int_a^b f(x)\,dx$ that has no convenient antiderivative, draw random points, average $f$ over them, and rescale. The estimator never needs to know the closed-form integral — only how to <em>evaluate</em> $f$ — which is exactly why it survives the jump to the high-dimensional integrals of light transport.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> For samples drawn from <em>any</em> density $p$, the average of $f(X_i)/p(X_i)$ is an unbiased estimate of $\int f$, because the $p$ in the denominator cancels the $p$ in the expectation integral; with the simplest choice — uniform $p=\tfrac1{b-a}$ — this collapses to “(domain width) × (average of $f$).”
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--fn)"></i> integrand $f(x)$</span>
+  <span><i class="dot" style="background:var(--samp)"></i> random sample $f(X_i)$</span>
+  <span><i class="swatch" style="border-color:var(--rect)"></i> estimate = width × mean height</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> exact value</span>
+</div>
+
+
+<h2>1. The goal: an integral we can’t do by hand</h2>
+
+<p>We want the definite integral of some function over an interval:</p>
+
+$$I=\int_a^b f(x)\,dx .$$
+
+<p>For a few textbook $f$ there is a tidy antiderivative. For most real integrands — and for the light-transport integrals later in this series — there is none. Monte Carlo sidesteps the antiderivative entirely: it only ever <strong>evaluates</strong> $f$ at points.</p>
+
+
+<h2>2. The estimator: domain width × average height</h2>
+
+<p>Draw $N$ points uniformly on $[a,b]$ and form</p>
+
+$$\hat I_N=(b-a)\cdot\frac1N\sum_{i=1}^N f(X_i),\qquad X_i\sim\mathrm{Uniform}[a,b].$$
+
+<p>Read it geometrically: $\tfrac1N\sum f(X_i)$ is the <strong>average height</strong> of the curve at random places, and multiplying by the <strong>width</strong> $(b-a)$ gives the area of a rectangle that has the same area as the region under $f$. The integral <em>is</em> “average height times width”; Monte Carlo just estimates the average height by sampling.</p>
+
+<figure>
+<svg viewBox="0 0 680 250" role="img" aria-label="A curve with the area beneath it, and an equal-area rectangle of width b minus a and height equal to the average value of the function.">
+  <!-- axes -->
+  <line x1="60" y1="210" x2="430" y2="210" stroke="#9aa0ad" stroke-width="1.4"/>
+  <line x1="60" y1="210" x2="60" y2="40" stroke="#9aa0ad" stroke-width="1.4"/>
+  <!-- curve f and area -->
+  <path d="M60,180 C140,60 240,70 330,110 C370,128 400,150 430,120 L430,210 L60,210 Z" fill="var(--area)" stroke="none"/>
+  <path d="M60,180 C140,60 240,70 330,110 C370,128 400,150 430,120" fill="none" stroke="var(--fn)" stroke-width="2.2"/>
+  <text x="300" y="70" font-size="14" fill="var(--fn)">f(x)</text>
+  <!-- average-height rectangle (height ~ avg) -->
+  <rect x="60" y="138" width="370" height="72" fill="var(--rect)" fill-opacity="0.12" stroke="var(--rect)" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <line x1="60" y1="138" x2="430" y2="138" stroke="var(--rect)" stroke-width="1.6"/>
+  <text x="66" y="131" font-size="12.5" fill="var(--rect)">average height</text>
+  <text x="245" y="232" font-size="12.5" fill="#8a8f9c" text-anchor="middle">width = b − a</text>
+  <text x="55" y="225" font-size="12" fill="#8a8f9c" text-anchor="middle">a</text>
+  <text x="430" y="225" font-size="12" fill="#8a8f9c" text-anchor="middle">b</text>
+  <!-- equality -->
+  <text x="452" y="116" font-size="15" fill="var(--ink)">I = (b − a) × <tspan fill="var(--rect)">avg. height</tspan></text>
+  <text x="452" y="146" font-size="13" fill="var(--true)">(both shaded areas are equal)</text>
+</svg>
+<figcaption>Figure 1. The integral equals the area under $f$ (blue), which equals the area of a rectangle of width $b-a$ and height equal to the function’s average value (purple). Monte Carlo estimates that average height by sampling $f$ at random points.</figcaption>
+</figure>
+
+
+<h2>3. Why it works — the $f/p$ identity</h2>
+
+<p>The estimator above is one case of a deeper formula. The trick is to write the average not of $f$ but of the ratio $f/p$, where $p$ is the density the samples are drawn from. The uniform density on $[a,b]$ is</p>
+
+$$p(x)=\frac{1}{b-a},$$
+
+<p>and the estimator can be rewritten as the plain average of $f(X_i)/p(X_i)$:</p>
+
+$$\frac1N\sum_{i=1}^N\frac{f(X_i)}{p(X_i)}=\frac1N\sum_{i=1}^N\frac{f(X_i)}{1/(b-a)}=(b-a)\frac1N\sum_{i=1}^N f(X_i).$$
+
+<p>Now take its expectation. The defining property of a sample drawn from $p$ is that $\mathbb E[g(X)]=\int g(x)\,p(x)\,dx$. Apply it with $g=f/p$:</p>
+
+$$\mathbb E\!\left[\frac{f(X)}{p(X)}\right]=\int_a^b\frac{f(x)}{p(x)}\,p(x)\,dx=\int_a^b f(x)\,dx=I.$$
+
+<div class="callout">
+<strong>The $p$’s cancel.</strong> That single cancellation is the entire theory of Monte Carlo integration. It says: <em>sample from $p$, divide each sample of $f$ by the density $p$ at that point, average — and you get the integral, exactly in expectation, with no bias.</em> The sample mean of $f/p$ is an <strong>unbiased estimator</strong> of $I$ for <em>any</em> valid $p$.
+</div>
+
+<p>Because it is an average of $N$ i.i.d. terms, everything from example 01 and 02 carries over: the Law of Large Numbers makes it converge, and its error falls as $1/\sqrt N$ (more in §6). The variance of that average — how noisy the estimate is — depends on how much the ratio $f/p$ varies from sample to sample, which is the hook for the next idea.</p>
+
+
+<h2>4. Any density works — and that freedom is the whole game</h2>
+
+<p>The identity in §3 used <em>no</em> special property of the uniform density. It holds for any $p(x)$ that is nonzero everywhere $f$ is nonzero (otherwise you would divide by zero in a region that contributes to $I$). This file uses the simplest $p$ — uniform — but the freedom to choose $p$ is what later examples exploit:</p>
+
+<ul>
+<li>If $p$ is roughly <strong>shaped like $f$</strong>, the ratio $f/p$ is nearly constant, so its variance is tiny and the estimate converges fast. This is <strong>importance sampling</strong> (example 06).</li>
+<li>In the extreme, $p\propto f$ makes $f/p$ exactly constant — <em>zero variance</em>, every sample lands on the answer.</li>
+</ul>
+
+<p>Below, all three densities estimate the same integral $\int_0^1 e^x\,dx=e-1$. Switch between them: the estimate lands on $1.718$ every time (unbiased, as promised), but the <strong>spread of the $f/p$ values</strong> — and therefore the noise — collapses as $p$ better matches $f$.</p>
+
+<figure>
+<div class="ctl">
+  density $p$:
+  <button id="p-uni" class="sel">uniform</button>
+  <button id="p-tilt">tilted&nbsp; p=½+x</button>
+  <button id="p-match">matched&nbsp; p∝eˣ</button>
+</div>
+<svg id="weights" viewBox="0 0 600 200" role="img" aria-label="The spread of f over p sample values for different sampling densities."></svg>
+<div class="panel" style="grid-template-columns:1fr 1fr 1fr">
+  <div class="row"><span>estimate of $\int_0^1 e^x$</span><b id="w-est" style="color:var(--rect)">—</b></div>
+  <div class="row"><span>exact $e-1$</span><b style="color:var(--true)">1.71828</b></div>
+  <div class="row"><span>std. dev of $f/p$</span><b id="w-std">—</b></div>
+</div>
+<figcaption>Figure 2. Each tick is one sample’s $f/p$ value (3,000 samples). All three densities average to the same exact integral (purple line), but the matched density $p\propto e^x$ squeezes every $f/p$ value onto a single point — zero variance. The choice of $p$ is the only lever on Monte Carlo noise; that lever is example 06.</figcaption>
+</figure>
+
+
+<h2>5. Two test integrals you can throw darts at</h2>
+
+<p>The file integrates two functions with known answers, so the estimate can be checked:</p>
+
+$$\int_0^1 e^x\,dx=e-1\approx1.7182818,\qquad\qquad\int_0^\pi \sin x\,dx=2 .$$
+
+<p>Throw uniform samples and watch the <span style="color:var(--rect)">average-height rectangle</span> grow to match the <span style="color:var(--area)">true area</span>. The sample-mean height (purple line) wanders toward the exact average height (green) as you add samples.</p>
+
+<figure>
+<div class="ctl">
+  integrand:
+  <button id="f-exp" class="sel">eˣ on [0,1]</button>
+  <button id="f-sin">sin x on [0,π]</button>
+  <span style="margin-left:auto"></span>
+  <button id="f-20">+20 samples</button>
+  <button id="f-200">+200 samples</button>
+  <button id="f-reset">Reset</button>
+</div>
+<div class="twocol">
+  <svg id="integ" viewBox="0 0 380 280" role="img" aria-label="An integrand with its area shaded, random sample points on the curve, and the running average-height rectangle."></svg>
+  <div class="panel" style="grid-template-columns:1fr">
+    <div class="row"><span>samples N</span><b id="i-n">0</b></div>
+    <div class="row"><span>mean height $\frac1N\sum f(X_i)$</span><b id="i-mean">—</b></div>
+    <div class="row"><span>estimate $(b-a)\cdot$mean</span><b id="i-est" style="color:var(--rect)">—</b></div>
+    <div class="row"><span>exact</span><b id="i-exact" style="color:var(--true)">—</b></div>
+    <div class="row"><span>abs error</span><b id="i-err">—</b></div>
+  </div>
+</div>
+<figcaption>Figure 3. Monte Carlo integration in the act. Orange dots are sampled function values $f(X_i)$; the purple line is their running mean height and the dashed box is the estimate $(b-a)\times$mean. It settles onto the green exact-average line — and the box area onto the shaded true area — at the $1/\sqrt N$ rate.</figcaption>
+</figure>
+
+
+<h2>6. Convergence: the same 1/√N as everything else</h2>
+
+<p>Because the estimator is a sample mean, its error obeys the law from example 02: absolute error $\propto1/\sqrt N$, a straight line of slope $-\tfrac12$ on log–log axes. Both integrands follow it; only the constant out front differs (it is set by the variance of $f/p$, i.e. by how much each integrand wiggles).</p>
+
+<figure>
+<svg id="conv" viewBox="0 0 600 350" role="img" aria-label="Log-log convergence of the absolute error for both integrals, against a one-over-root-N reference."></svg>
+<div class="ctl">
+  <button id="c-run">Run</button>
+  <button id="c-reset">Reset</button>
+  <span class="small">n = <b id="c-n">0</b> · error(eˣ) = <b id="c-e1">—</b> · error(sin) = <b id="c-e2">—</b></span>
+</div>
+<figcaption>Figure 4. Absolute error vs. sample count, log–log, for $\int e^x$ (blue) and $\int\sin x$ (orange). Both track the dashed $1/\sqrt N$ reference of slope $-\tfrac12$ — the estimator’s accuracy improves at the same stubborn rate regardless of the integrand.</figcaption>
+</figure>
+
+
+<h2>7. The same formula <em>is</em> the rendering equation</h2>
+
+<p>This is not just an analogy. The outgoing radiance at a surface point is a hemispherical integral, and a path tracer estimates it with exactly the $f/p$ formula from §3 — sampling directions $\omega_i$ from some density $p(\omega)$ and averaging the integrand over $p$:</p>
+
+$$L_o(\omega_o)=\int_{\mathcal H^2} f_r(\omega_o,\omega_i)\,L_i(\omega_i)\,\cos\theta_i\,d\omega_i\;\approx\;\frac1N\sum_{i=1}^N\frac{f_r(\omega_o,\omega_i)\,L_i(\omega_i)\,\cos\theta_i}{p(\omega_i)} .$$
+
+<figure>
+<svg viewBox="0 0 680 170" role="img" aria-label="Term-by-term correspondence between the toy integral estimator and the rendering-equation estimator.">
+  <text x="40" y="40" font-size="14" fill="var(--muted)">toy integral</text>
+  <text x="40" y="70" font-size="16" fill="var(--ink)">Î = (1/N) Σ</text>
+  <rect x="168" y="52" width="86" height="26" rx="5" fill="#dff0e6" stroke="var(--true)"/>
+  <text x="178" y="70" font-size="15" fill="var(--ink)">f(Xᵢ)</text>
+  <text x="258" y="70" font-size="16" fill="var(--ink)">/</text>
+  <rect x="270" y="52" width="92" height="26" rx="5" fill="#fdebd8" stroke="var(--samp)"/>
+  <text x="280" y="70" font-size="15" fill="var(--ink)">p(Xᵢ)</text>
+
+  <text x="40" y="120" font-size="14" fill="var(--muted)">rendering eq.</text>
+  <text x="40" y="150" font-size="16" fill="var(--ink)">L̂ₒ = (1/N) Σ</text>
+  <rect x="168" y="132" width="180" height="26" rx="5" fill="#dff0e6" stroke="var(--true)"/>
+  <text x="178" y="150" font-size="14" fill="var(--ink)">fᵣ · Lᵢ · cosθᵢ</text>
+  <text x="356" y="150" font-size="16" fill="var(--ink)">/</text>
+  <rect x="368" y="132" width="96" height="26" rx="5" fill="#fdebd8" stroke="var(--samp)"/>
+  <text x="378" y="150" font-size="14" fill="var(--ink)">p(ωᵢ)</text>
+
+  <line x1="211" y1="82" x2="258" y2="130" stroke="var(--true)" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <line x1="316" y1="82" x2="416" y2="130" stroke="var(--samp)" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <text x="500" y="92" font-size="13.5" fill="var(--muted)">numerator = integrand</text>
+  <text x="500" y="112" font-size="13.5" fill="var(--muted)">denominator = sampling pdf</text>
+</svg>
+<figcaption>Figure 5. The toy estimator and the path-tracing estimator are the <em>same</em> formula: an average of (integrand)/(sampling density). Everything in this folder is ultimately about choosing and analysing that density $p$.</figcaption>
+</figure>
+
+
+<h2>8. The code</h2>
+
+<p>The helper is the estimator verbatim. Note the comment on line 48: dividing by the uniform density $p=1/(b-a)$ is the same as multiplying by $(b-a)$, so the $/p$ is “folded into” the trailing $(b-a)$ factor rather than written out.</p>
+
+<pre><code>// estimate the integral of f over [a,b] with N uniform samples
+template &lt;typename F&gt;
+double EstimateIntegral(F f, double a, double b, long long n, Rng&amp; rng) {
+    double sum = 0.0;
+    for (long long i = 0; i &lt; n; ++i) {
+        double x = rng.NextFloat((float)a, (float)b);  // X_i ~ Uniform[a,b]
+        sum += f(x);                 // f(X_i)/p(X_i) with p=1/(b-a), folded
+    }                                // into the (b-a) factor below
+    return (b - a) * sum / n;        // (b-a) * average of f
+}
+
+// ... in main(): both integrals checked at N = 10, 100, ... , 10,000,000
+auto fExp = [](double x){ return std::exp(x); };   // exact: e - 1
+auto gSin = [](double x){ return std::sin(x); };   // exact: 2
+EstimateIntegral(fExp, 0.0, 1.0, n, rng);
+EstimateIntegral(gSin, 0.0, kPi, n, rng);</code></pre>
+
+<p>The decade tables it prints converge like this (digits depend on the seed):</p>
+
+<table>
+<thead><tr><th class="num">N</th><th class="num">∫eˣ estimate (→1.7182818)</th><th class="num">∫sin estimate (→2)</th></tr></thead>
+<tbody>
+<tr><td class="num">10</td><td class="num">1.62…</td><td class="num">2.13…</td></tr>
+<tr><td class="num">1,000</td><td class="num">1.709…</td><td class="num">1.98…</td></tr>
+<tr><td class="num">100,000</td><td class="num">1.7178…</td><td class="num">2.001…</td></tr>
+<tr><td class="num">10,000,000</td><td class="num">1.71829…</td><td class="num">2.0000…</td></tr>
+</tbody>
+</table>
+
+
+<h2>9. Takeaways</h2>
+<ul>
+<li><strong>The estimator.</strong> $\hat I_N=\frac1N\sum f(X_i)/p(X_i)$ estimates $\int f$ for samples drawn from density $p$; with uniform $p$ it is “(domain width) × (average of $f$).”</li>
+<li><strong>Why it’s unbiased.</strong> $\mathbb E[f/p]=\int (f/p)\,p\,dx=\int f$ — the sampling density cancels. True for any $p$ that is nonzero wherever $f$ is.</li>
+<li><strong>Choice of $p$ is the only knob.</strong> It does not change <em>what</em> the estimator converges to (always $I$), only <em>how fast</em> — the variance of $f/p$. Matching $p$ to $f$ is importance sampling (example 06).</li>
+<li><strong>Convergence is $1/\sqrt N$.</strong> As a sample mean it inherits the rate and analysis of examples 01–02.</li>
+<li><strong>No antiderivative required.</strong> The estimator only evaluates $f$ at points, so it scales to the high-dimensional, no-closed-form integrals of light transport — where it appears as the rendering equation, an average of $f_r L_i\cos\theta / p(\omega)$.</li>
+</ul>
+
+<p class="small">References — the $f/p$ estimator is the foundation of Monte Carlo integration; see Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.1–13.3, and Veach’s thesis, <em>Robust Monte Carlo Methods for Light Transport Simulation</em> (1997), ch. 2. The $1/\sqrt N$ rate is the Central Limit Theorem (example 04); the choice of $p$ is developed in example 06 (importance sampling).</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const E=Math.E, PI=Math.PI, EXACT_EXP=E-1, EXACT_SIN=2;
+
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+
+  // ===================================================================
+  // Figure 2 — "any density works": spread of f/p
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('weights');
+    const X0=40,X1=560,Y0=24,Y1=150, WMAX=3.0;   // weight axis 0..3
+    const xm=w=>X0+clamp(w,0,WMAX)/WMAX*(X1-X0);
+    const samplers={
+      uni:  ()=>{const x=Math.random(); return Math.exp(x);},                      // p=1
+      tilt: ()=>{const u=Math.random(); const x=(-1+Math.sqrt(1+8*u))/2; return Math.exp(x)/(0.5+x);}, // p=1/2+x
+      match:()=>{const u=Math.random(); /*x=ln(1+u(e-1))*/ return EXACT_EXP;}       // p∝e^x → constant
+    };
+    let mode='uni';
+    function run(){
+      const N=3000, ws=[]; let sum=0;
+      for(let i=0;i<N;i++){const w=samplers[mode](); ws.push(w); sum+=w;}
+      const mean=sum/N; let v=0; for(const w of ws) v+=(w-mean)*(w-mean); const sd=Math.sqrt(v/N);
+      // draw
+      svg.textContent='';
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let t=0;t<=3;t++){const x=xm(t);svg.appendChild(svgEl('line',{x1:x,y1:Y1,x2:x,y2:Y1+5,stroke:'#9aa0ad'}));svg.appendChild(txt(x,Y1+18,t.toFixed(0),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));}
+      svg.appendChild(txt((X0+X1)/2,Y1+34,'value of  f(Xᵢ) / p(Xᵢ)',{'font-size':12,fill:'#5b6472','text-anchor':'middle'}));
+      // ±sd band
+      svg.appendChild(svgEl('rect',{x:xm(mean-sd),y:Y0+8,width:Math.max(0,xm(mean+sd)-xm(mean-sd)),height:Y1-Y0-8,fill:'var(--rect)','fill-opacity':0.08}));
+      // sample ticks (subset for clarity) with vertical jitter
+      const show=Math.min(N,1200);
+      for(let i=0;i<show;i++){const w=ws[(i*N/show)|0]; const x=xm(w), y=Y0+12+Math.random()*(Y1-Y0-20);
+        svg.appendChild(svgEl('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:1.5,fill:'var(--samp)','fill-opacity':0.5}));}
+      // mean / exact line
+      svg.appendChild(svgEl('line',{x1:xm(EXACT_EXP),y1:Y0,x2:xm(EXACT_EXP),y2:Y1,stroke:'var(--true)','stroke-width':2}));
+      svg.appendChild(txt(xm(EXACT_EXP)+5,Y0+12,'e−1 = 1.718',{'font-size':11.5,fill:'var(--true)'}));
+      document.getElementById('w-est').textContent=mean.toFixed(4);
+      document.getElementById('w-std').textContent=sd.toFixed(4)+(mode==='match'?'  (zero!)':'');
+    }
+    const btns={uni:'p-uni',tilt:'p-tilt',match:'p-match'};
+    Object.keys(btns).forEach(k=>{document.getElementById(btns[k]).onclick=()=>{
+      mode=k; Object.values(btns).forEach(id=>document.getElementById(id).classList.remove('sel'));
+      document.getElementById(btns[k]).classList.add('sel'); run();
+    };});
+    run();
+  })();
+
+  // ===================================================================
+  // Figure 3 — integration visualizer
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('integ');
+    const X0=44,X1=360,Y0=20,Y1=232, CAP=600;
+    const integ={
+      exp:{a:0,b:1, f:Math.exp, ymax:2.95, exact:EXACT_EXP, label:'eˣ'},
+      sin:{a:0,b:PI,f:Math.sin, ymax:1.15, exact:EXACT_SIN, label:'sin x'}
+    };
+    let cur='exp', xs=[], sum=0;
+    const cfg=()=>integ[cur];
+    const xm=x=>{const c=cfg();return X0+(x-c.a)/(c.b-c.a)*(X1-X0);};
+    const ym=y=>{const c=cfg();return Y1-clamp(y,0,c.ymax)/c.ymax*(Y1-Y0);};
+    function draw(){
+      const c=cfg(); svg.textContent='';
+      // axes
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(txt(X0,Y1+16,c.a.toFixed(0),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));
+      svg.appendChild(txt(X1,Y1+16,cur==='sin'?'π':'1',{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));
+      // area under curve
+      const pts=[]; const M=120;
+      for(let i=0;i<=M;i++){const x=c.a+(c.b-c.a)*i/M; pts.push([xm(x),ym(c.f(x))]);}
+      let d='M'+xm(c.a)+','+ym(0)+' '+pts.map(p=>'L'+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ')+' L'+xm(c.b)+','+ym(0)+' Z';
+      svg.appendChild(svgEl('path',{d,fill:'var(--area)',stroke:'none'}));
+      svg.appendChild(polyline(pts,'var(--fn)',2.2));
+      svg.appendChild(txt(xm((c.a+c.b)/2),ym(c.f((c.a+c.b)/2))-8,c.label,{'font-size':13,fill:'var(--fn)','text-anchor':'middle'}));
+      // exact average-height line (green)
+      const avgExact=c.exact/(c.b-c.a);
+      svg.appendChild(svgEl('line',{x1:X0,y1:ym(avgExact),x2:X1,y2:ym(avgExact),stroke:'var(--true)','stroke-width':1.4,'stroke-dasharray':'4 4'}));
+      // samples + running mean rectangle
+      const n=xs.length, mean=n?sum/n:0;
+      if(n){
+        svg.appendChild(svgEl('rect',{x:X0,y:ym(mean),width:X1-X0,height:ym(0)-ym(mean),fill:'var(--rect)','fill-opacity':0.10,stroke:'var(--rect)','stroke-width':1.4,'stroke-dasharray':'5 4'}));
+        svg.appendChild(svgEl('line',{x1:X0,y1:ym(mean),x2:X1,y2:ym(mean),stroke:'var(--rect)','stroke-width':1.6}));
+      }
+      const show=Math.min(n,300);
+      for(let i=0;i<show;i++){const x=xs[(i*n/show)|0]; svg.appendChild(svgEl('circle',{cx:xm(x).toFixed(1),cy:ym(c.f(x)).toFixed(1),r:2,fill:'var(--samp)','fill-opacity':0.7}));}
+      // readouts
+      const est=(c.b-c.a)*mean;
+      document.getElementById('i-n').textContent=n.toLocaleString();
+      document.getElementById('i-mean').textContent=n?mean.toFixed(4):'—';
+      document.getElementById('i-est').textContent=n?est.toFixed(4):'—';
+      document.getElementById('i-exact').textContent=c.exact.toFixed(5);
+      document.getElementById('i-err').textContent=n?Math.abs(est-c.exact).toFixed(4):'—';
+    }
+    function add(k){const c=cfg(); for(let i=0;i<k && xs.length<CAP;i++){const x=c.a+(c.b-c.a)*Math.random(); xs.push(x); sum+=c.f(x);} draw();}
+    function reset(){xs=[];sum=0;draw();}
+    document.getElementById('f-20').onclick=()=>add(20);
+    document.getElementById('f-200').onclick=()=>add(200);
+    document.getElementById('f-reset').onclick=reset;
+    document.getElementById('f-exp').onclick=()=>{cur='exp';document.getElementById('f-exp').classList.add('sel');document.getElementById('f-sin').classList.remove('sel');reset();};
+    document.getElementById('f-sin').onclick=()=>{cur='sin';document.getElementById('f-sin').classList.add('sel');document.getElementById('f-exp').classList.remove('sel');reset();};
+    add(20);
+  })();
+
+  // ===================================================================
+  // Figure 4 — convergence (both integrals), log-log
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('conv');
+    const NMAX=1000000, NSTART=10;
+    const X0=62,X1=560,Y0=28,Y1=298, EX0=1,EX1=6, EY0=-4,EY1=0;
+    const xm=n=>X0+(Math.log10(n)-EX0)/(EX1-EX0)*(X1-X0);
+    const ym=e=>Y1-(Math.log10(clamp(e,1e-4,1))-EY0)/(EY1-EY0)*(Y1-Y0);
+    let n,sumE,sumS,nextRec,e1Pts,e2Pts,raf=null;
+    function backdrop(){
+      svg.textContent='';
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let e=EX0;e<=EX1;e++){const x=xm(Math.pow(10,e));svg.appendChild(svgEl('line',{x1:x,y1:Y0,x2:x,y2:Y1,stroke:'#eef0f4'}));svg.appendChild(txt(x,Y1+16,'10^'+e,{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));}
+      for(let e=EY0;e<=EY1;e++){const y=ym(Math.pow(10,e));svg.appendChild(svgEl('line',{x1:X0,y1:y,x2:X1,y2:y,stroke:'#eef0f4'}));svg.appendChild(txt(X0-6,y+4,'10^'+e,{'font-size':10.5,fill:'#8a8f9c','text-anchor':'end'}));}
+      svg.appendChild(txt((X0+X1)/2,Y1+32,'number of samples N  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle'}));
+      svg.appendChild(txt(16,(Y0+Y1)/2,'absolute error  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle',transform:`rotate(-90 16 ${(Y0+Y1)/2})`}));
+      // 1/sqrt(N) reference (anchored at ~0.5 at N=10)
+      const ref=n0=>0.5/Math.sqrt(n0/10);
+      svg.appendChild(polyline([[xm(10),ym(ref(10))],[xm(1e6),ym(ref(1e6))]],'#9aa0ad',2,'6 4'));
+      svg.appendChild(txt(xm(3000),ym(ref(3000))-8,'slope −½  (1/√N)',{'font-size':11.5,fill:'#8a8f9c'}));
+      // legend
+      svg.appendChild(svgEl('line',{x1:X0+20,y1:Y0+12,x2:X0+46,y2:Y0+12,stroke:'var(--fn)','stroke-width':3}));
+      svg.appendChild(txt(X0+52,Y0+16,'∫eˣ error',{'font-size':12,fill:'#5b6472'}));
+      svg.appendChild(svgEl('line',{x1:X0+150,y1:Y0+12,x2:X0+176,y2:Y0+12,stroke:'var(--samp)','stroke-width':3}));
+      svg.appendChild(txt(X0+182,Y0+16,'∫sin error',{'font-size':12,fill:'#5b6472'}));
+      svg.appendChild(svgEl('g',{id:'conv-data'}));
+    }
+    function frame(){
+      const e1=Math.abs((1)*(sumE/n)-EXACT_EXP), e2=Math.abs((PI)*(sumS/n)-EXACT_SIN);
+      const layer=document.getElementById('conv-data'); layer.textContent='';
+      layer.appendChild(polyline(e1Pts,'var(--fn)',2));
+      layer.appendChild(polyline(e2Pts,'var(--samp)',2));
+      document.getElementById('c-n').textContent=n.toLocaleString();
+      document.getElementById('c-e1').textContent=e1.toFixed(5);
+      document.getElementById('c-e2').textContent=e2.toFixed(5);
+    }
+    function step(){
+      const target=Math.min(NMAX,n+8000);
+      for(;n<target;){
+        const xe=Math.random(); sumE+=Math.exp(xe);          // [0,1]
+        const xs=PI*Math.random(); sumS+=Math.sin(xs);        // [0,π]
+        n++;
+        if(n>=nextRec && n>=NSTART){
+          const e1=Math.abs((sumE/n)-EXACT_EXP), e2=Math.abs(PI*(sumS/n)-EXACT_SIN);
+          e1Pts.push([xm(n),ym(e1)]); e2Pts.push([xm(n),ym(e2)]);
+          nextRec=Math.ceil(nextRec*Math.pow(10,1/40));
+        }
+      }
+      frame();
+      if(n<NMAX) raf=requestAnimationFrame(step); else raf=null;
+    }
+    function reset(){ if(raf){cancelAnimationFrame(raf);raf=null;}
+      n=0;sumE=0;sumS=0;nextRec=NSTART;e1Pts=[];e2Pts=[]; backdrop();
+      document.getElementById('c-n').textContent='0';
+      document.getElementById('c-e1').textContent='—';
+      document.getElementById('c-e2').textContent='—';
+    }
+    document.getElementById('c-run').onclick=()=>{ if(raf)return; if(n>=NMAX)reset(); step(); };
+    document.getElementById('c-reset').onclick=reset;
+    reset();
+  })();
+})();
+</script>
+
+</body>
+</html>
