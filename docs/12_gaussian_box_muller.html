@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 — Sampling the normal (Box–Muller) — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --samp:#2b6cb0; --pdf:#7c3aed; --ctor:#dd6b20; --true:#2f9e64; --gold:#d9a500; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--true)}
+  .callout.warn{border-left-color:var(--ctor)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  .twocol{display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start}
+  @media(max-width:680px){.twocol{grid-template-columns:1fr}}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 14px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Sampling the normal distribution (Box–Muller)</h1>
+<p class="sub">12_gaussian_box_muller.cpp — the Gaussian's CDF has no elementary inverse, so inversion fails; Box–Muller sidesteps it by working in 2-D, turning two uniforms into two independent standard normals.</p>
+
+<p class="lead">The normal (Gaussian) is everywhere: it is the limiting shape the Central Limit Theorem produced for our estimator in <a href="04_variance_and_clt.html">example 04</a>, and Gaussian kernels are standard reconstruction/blur filters. So we want to <em>sample</em> one. But its CDF is the error function $\operatorname{erf}$, which has no elementary inverse — the inversion method of <a href="05_sampling_distributions.html">example 05</a> can't be applied directly. Box–Muller gets around that with a clever change to polar coordinates.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Two independent standard normals form a rotationally-symmetric cloud in the plane, so its <em>angle</em> is uniform and its <em>squared radius</em> is Exponential — both easy to sample by inversion; Box–Muller draws those polar coordinates from two uniforms and converts back: $R=\sqrt{-2\ln U_1}$, $\theta=2\pi U_2$, then $Z_0=R\cos\theta$, $Z_1=R\sin\theta$ are i.i.d. $\mathcal N(0,1)$.
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--samp)"></i> normal samples $Z$</span>
+  <span><i class="swatch" style="border-color:var(--pdf)"></i> bell curve $\varphi(x)$</span>
+  <span><i class="swatch" style="border-color:var(--ctor)"></i> the $(R,\theta)$ construction</span>
+  <span><i class="swatch" style="border-color:var(--true)"></i> theory</span>
+</div>
+
+
+<h2 id="1">1. Why inversion fails here<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The standard normal density is $\varphi(x)=\dfrac{1}{\sqrt{2\pi}}e^{-x^2/2}$, and its CDF $\Phi(x)=\tfrac12\big(1+\operatorname{erf}(x/\sqrt2)\big)$. Inversion sampling (<a href="05_sampling_distributions.html">example 05</a>) needs $\Phi^{-1}$ in closed form — but $\operatorname{erf}$ has no elementary inverse. So we need a different trick. The trick is to stop thinking in 1-D and sample <em>two</em> normals at once, geometrically.</p>
+
+
+<h2 id="2">2. The Box–Muller transform<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Take two independent uniforms $U_1,U_2$ and produce two independent standard normals:</p>
+
+$$R=\sqrt{-2\ln U_1},\qquad \theta=2\pi U_2,\qquad \boxed{\,Z_0=R\cos\theta,\quad Z_1=R\sin\theta\,}$$
+
+<p>Then $Z_0,Z_1\sim\mathcal N(0,1)$, independent. For a general $\mathcal N(\mu,\sigma^2)$, shift and scale: $X=\mu+\sigma Z$.</p>
+
+
+<h2 id="3">3. Why it works: think in 2-D<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Place two independent standard normals as a point $(Z_0,Z_1)$ in the plane. Their joint density multiplies:</p>
+
+$$\varphi(z_0)\,\varphi(z_1)=\frac{1}{2\pi}\,e^{-(z_0^2+z_1^2)/2}=\frac{1}{2\pi}\,e^{-r^2/2},$$
+
+<p>which depends <strong>only on the radius</strong> $r^2=z_0^2+z_1^2$ — the cloud is <em>rotationally symmetric</em>. In polar coordinates that means:</p>
+
+<ul>
+<li>the <strong>angle</strong> $\theta$ is <strong>uniform</strong> on $[0,2\pi)$ — no direction is special;</li>
+<li>the <strong>squared radius</strong> $S=R^2$ is <strong>Exponential</strong> with mean 2 (the area element $r\,dr$ turns $e^{-r^2/2}$ into the exponential density $\tfrac12 e^{-s/2}$).</li>
+</ul>
+
+<p>Both are samplable by inversion: a uniform angle is just $2\pi U_2$, and the Exponential inverse-CDF gives $S=-2\ln U_1$, so $R=\sqrt{-2\ln U_1}$ (the same exponential trick as <a href="05_sampling_distributions.html">example 05</a>). Convert the polar sample $(R,\theta)$ back to Cartesian and you have your two normals.</p>
+
+<figure>
+<div class="twocol">
+  <svg id="plane" viewBox="0 0 320 340" role="img" aria-label="The 2D plane of normal pairs: a rotationally symmetric cloud, with the radius-and-angle construction of one point."></svg>
+  <div>
+    <div class="panel" style="grid-template-columns:1fr">
+      <div class="row"><span>$U_1$</span><b id="p-u1">0.50</b></div>
+      <div class="row"><span>$U_2$</span><b id="p-u2">0.50</b></div>
+      <div class="row"><span>$R=\sqrt{-2\ln U_1}$</span><b id="p-r" style="color:var(--ctor)">—</b></div>
+      <div class="row"><span>$\theta=2\pi U_2$</span><b id="p-th" style="color:var(--ctor)">—</b></div>
+      <div class="row"><span>$Z_0=R\cos\theta$</span><b id="p-z0" style="color:var(--samp)">—</b></div>
+      <div class="row"><span>$Z_1=R\sin\theta$</span><b id="p-z1" style="color:var(--samp)">—</b></div>
+    </div>
+    <div class="ctl" style="flex-direction:column; align-items:stretch; gap:6px">
+      <label>U₁ <input id="pl-u1" type="range" min="1" max="999" value="500"></label>
+      <label>U₂ <input id="pl-u2" type="range" min="0" max="1000" value="500"></label>
+    </div>
+    <div class="ctl">
+      <button id="pl-add">+2,000 points</button>
+      <button id="pl-reset">Reset cloud</button>
+    </div>
+  </div>
+</div>
+<figcaption>Figure 1. The 2-D view. Throw points and they form a <span style="color:var(--samp)">rotationally-symmetric cloud</span> — the joint density depends only on the radius. Drag $U_1,U_2$ to construct one point: $U_2$ sets the <span style="color:var(--ctor)">angle</span>, $U_1$ sets the <span style="color:var(--ctor)">radius</span>; its two coordinates are the pair of independent normals.</figcaption>
+</figure>
+
+
+<h2 id="4">4. Verify it really is normal<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Three checks, the same ones the C++ file runs. Sample many standard normals and compare to the bell: the histogram should trace $\varphi(x)$, the mean should be $0$ and the variance $1$, and the fraction of samples within $1,2,3$ standard deviations should hit the “68–95–99.7” values.</p>
+
+<figure>
+<svg id="hist" viewBox="0 0 600 300" role="img" aria-label="Histogram of Box-Muller samples tracing the standard normal bell curve, with one/two/three sigma bands."></svg>
+<div class="ctl">
+  <button id="h-add">+20,000 samples</button>
+  <button id="h-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>samples</span><b id="h-n">0</b></div>
+  <div class="row"><span>mean (theory 0)</span><b id="h-mean" style="color:var(--samp)">—</b></div>
+  <div class="row"><span>variance (theory 1)</span><b id="h-var" style="color:var(--samp)">—</b></div>
+  <div class="row"><span>within 1σ (theory 68.27%)</span><b id="h-s1" style="color:var(--true)">—</b></div>
+  <div class="row"><span>within 2σ (theory 95.45%)</span><b id="h-s2" style="color:var(--true)">—</b></div>
+  <div class="row"><span>within 3σ (theory 99.73%)</span><b id="h-s3" style="color:var(--true)">—</b></div>
+</div>
+<figcaption>Figure 2. Box–Muller samples (bars) against $\varphi(x)$ (purple), with the $\pm1\sigma/\pm2\sigma/\pm3\sigma$ bands shaded. The bars settle onto the bell, the moments onto $0$ and $1$, and the band fractions onto 68.27 / 95.45 / 99.73% — three independent confirmations that the output is $\mathcal N(0,1)$.</figcaption>
+</figure>
+
+
+<h2 id="5">5. Any normal: shift and scale<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>A standard normal is all you need — $X=\mu+\sigma Z$ has mean $\mu$ and standard deviation $\sigma$. Slide $\mu$ and $\sigma$ to move and widen the bell:</p>
+
+<figure>
+<svg id="scaled" viewBox="0 0 600 220" role="img" aria-label="The normal density for adjustable mean and standard deviation."></svg>
+<div class="ctl">
+  μ = <b id="sc-muval" style="display:inline-block; min-width:2.8em; text-align:right; font-variant-numeric:tabular-nums">2.0</b> <input id="sc-mu" type="range" min="-30" max="40" value="20">
+  &nbsp; σ = <b id="sc-sigval">1.5</b> <input id="sc-sig" type="range" min="5" max="25" value="15">
+  <span class="small">peak height $=1/(\sigma\sqrt{2\pi})$</span>
+</div>
+<figcaption>Figure 3. $\mathcal N(\mu,\sigma^2)$ from the standard normal via $X=\mu+\sigma Z$: $\mu$ slides the center, $\sigma$ stretches the width (and lowers the peak, since the area stays 1). The dashed marks are $\mu$ and $\mu\pm\sigma$.</figcaption>
+</figure>
+
+
+<h2 id="6">6. Practical notes<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+<ul>
+<li><strong>Avoid $\ln 0$.</strong> $U_1$ must be in $(0,1]$, never $0$ — the file draws it as <code>1 - NextFloat()</code> (since <code>NextFloat()</code> returns $[0,1)$), so $\ln U_1$ is always finite.</li>
+<li><strong>Trig-free alternative.</strong> Marsaglia’s polar method samples a point in the unit disk by <em>rejection</em> (<a href="05_sampling_distributions.html">example 05</a>) and reuses its squared radius, avoiding the $\cos/\sin$ — handy when trig is costlier than a few rejected samples.</li>
+<li><strong>Two at a time.</strong> Box–Muller naturally yields a <em>pair</em>; implementations often cache $Z_1$ and return it on the next call.</li>
+</ul>
+
+
+<h2 id="7">7. The code<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+<p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/12_gaussian_box_muller.cpp" target="_blank" rel="noopener"><code>12_gaussian_box_muller.cpp</code></a>.</p>
+
+<pre class="language-cpp"><code class="language-cpp">const double TWO_PI = 6.283185307179586;
+for (long long i = 0; i &lt; kPairs; ++i) {
+    double u1 = 1.0 - rng.NextFloat();   // in (0,1], so ln(u1) is finite
+    double u2 = rng.NextFloat();
+    double r  = sqrt(-2.0 * log(u1));
+    tally( r * cos(TWO_PI * u2) );       // Z0 ~ N(0,1)
+    tally( r * sin(TWO_PI * u2) );       // Z1 ~ N(0,1)
+}
+// general normal:  X = mu + sigma * Z</code></pre>
+
+<p>The printed histogram traces $\varphi(x)$, the sample mean/variance come out $\approx 0$ and $\approx 1$, and the within-$1/2/3\sigma$ fractions land on $68.27/95.45/99.73\%$.</p>
+
+
+<h2 id="8">8. Where the bell shows up in rendering<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<div class="callout">
+<strong>Rendering link.</strong> This is the same bell the Central Limit Theorem drew for the Monte Carlo estimator itself in <a href="04_variance_and_clt.html">example 04</a> — the per-pixel estimate is approximately $\mathcal N(I,\sigma^2/N)$, which is exactly why $\pm1.96\,\mathrm{SE}$ is a 95% error band. Separately, Gaussian kernels are a common choice of <em>reconstruction filter</em> (weighting sub-pixel samples) and of denoiser blur, so sampling/evaluating a Gaussian is a routine renderer task.
+</div>
+
+
+<h2 id="9">9. Takeaways<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+<ul>
+<li><strong>Inversion can’t sample the normal directly</strong> — its CDF $\Phi$ has no elementary inverse.</li>
+<li><strong>Box–Muller</strong> turns two uniforms into two independent standard normals via polar coordinates: $R=\sqrt{-2\ln U_1}$, $\theta=2\pi U_2$.</li>
+<li><strong>Why it works:</strong> a 2-D pair of normals is rotationally symmetric ⇒ uniform angle and Exponential squared-radius, both samplable by inversion.</li>
+<li><strong>General normals</strong> follow by $X=\mu+\sigma Z$.</li>
+<li><strong>Verified three ways</strong> — histogram vs $\varphi$, moments $0$ and $1$, and the 68–95–99.7 rule — the same bell the CLT (example 04) gives the estimator.</li>
+</ul>
+
+<p class="small">References — G. E. P. Box &amp; M. E. Muller, <em>A Note on the Generation of Random Normal Deviates</em>, Ann. Math. Statist. 29(2), 1958. Marsaglia polar method: Marsaglia &amp; Bray (1964). See also Devroye, <em>Non-Uniform Random Variate Generation</em> (1986), ch. V. The normal as the CLT limit of the estimator: example 04.</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const TWO_PI=2*Math.PI, INV_SQRT_2PI=1/Math.sqrt(2*Math.PI);
+  function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function polyline(pts,stroke,w,dash){
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');
+    const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};
+    if(dash)a['stroke-dasharray']=dash; return svgEl('path',a);
+  }
+  function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
+  function phi(x){return INV_SQRT_2PI*Math.exp(-0.5*x*x);}
+  // one Box-Muller pair from two uniforms
+  function bmPair(u1,u2){const r=Math.sqrt(-2*Math.log(u1)); return [r*Math.cos(TWO_PI*u2), r*Math.sin(TWO_PI*u2)];}
+  function bmRandom(){return bmPair(1-Math.random(), Math.random());}
+
+  // ===================================================================
+  // Figure 1 — 2D plane: cloud + (R,theta) construction
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('plane');
+    const X0=30,Y0=20,S=270, RANGE=4;            // plane [X0,X0+S]^2, data range ±4
+    const cx=X0+S/2, cy=Y0+S/2, sc=S/(2*RANGE);   // px per unit
+    const mx=z=>cx+z*sc, my=z=>cy-z*sc;
+    let pts=[], u1=0.5, u2=0.5;
+    function draw(){
+      svg.textContent='';
+      svg.appendChild(svgEl('rect',{x:X0,y:Y0,width:S,height:S,fill:'#fff',stroke:'#cbd0d9','stroke-width':1.2}));
+      // axes + ticks at -2,0,2
+      svg.appendChild(svgEl('line',{x1:X0,y1:cy,x2:X0+S,y2:cy,stroke:'#e6e8ee'}));
+      svg.appendChild(svgEl('line',{x1:cx,y1:Y0,x2:cx,y2:Y0+S,stroke:'#e6e8ee'}));
+      [-2,2].forEach(t=>{svg.appendChild(svgEl('circle',{cx:mx(0),cy:my(0),r:Math.abs(t)*sc,fill:'none',stroke:'#eef0f4'}));});
+      // cloud
+      pts.forEach(p=>svg.appendChild(svgEl('circle',{cx:mx(p[0]).toFixed(1),cy:my(p[1]).toFixed(1),r:1.5,fill:'var(--samp)','fill-opacity':0.45})));
+      // construction
+      const z=bmPair(u1,u2), r=Math.sqrt(-2*Math.log(u1)), th=TWO_PI*u2;
+      svg.appendChild(svgEl('line',{x1:mx(0),y1:my(0),x2:mx(z[0]),y2:my(z[1]),stroke:'var(--ctor)','stroke-width':2}));
+      // projections to axes
+      svg.appendChild(svgEl('line',{x1:mx(z[0]),y1:my(z[1]),x2:mx(z[0]),y2:my(0),stroke:'var(--ctor)','stroke-width':1,'stroke-dasharray':'3 3'}));
+      svg.appendChild(svgEl('line',{x1:mx(z[0]),y1:my(z[1]),x2:mx(0),y2:my(z[1]),stroke:'var(--ctor)','stroke-width':1,'stroke-dasharray':'3 3'}));
+      svg.appendChild(svgEl('circle',{cx:mx(z[0]),cy:my(z[1]),r:4,fill:'var(--ctor)',stroke:'#fff','stroke-width':1.5}));
+      svg.appendChild(svgEl('circle',{cx:mx(z[0]),cy:my(0),r:2.6,fill:'var(--samp)'}));
+      svg.appendChild(svgEl('circle',{cx:mx(0),cy:my(z[1]),r:2.6,fill:'var(--samp)'}));
+      svg.appendChild(txt(X0+S-4,cy-4,'Z₀',{'font-size':11,fill:'#8a8f9c','text-anchor':'end'}));
+      svg.appendChild(txt(cx+5,Y0+11,'Z₁',{'font-size':11,fill:'#8a8f9c'}));
+      // readouts
+      document.getElementById('p-u1').textContent=u1.toFixed(3);
+      document.getElementById('p-u2').textContent=u2.toFixed(3);
+      document.getElementById('p-r').textContent=r.toFixed(3);
+      document.getElementById('p-th').textContent=(th*180/Math.PI).toFixed(0)+'°';
+      document.getElementById('p-z0').textContent=z[0].toFixed(3);
+      document.getElementById('p-z1').textContent=z[1].toFixed(3);
+    }
+    document.getElementById('pl-u1').addEventListener('input',e=>{u1=clamp(+e.target.value/1000,0.001,1);draw();});
+    document.getElementById('pl-u2').addEventListener('input',e=>{u2=+e.target.value/1000;draw();});
+    document.getElementById('pl-add').onclick=()=>{for(let i=0;i<1000;i++){const p=bmRandom();pts.push([p[0],p[1]]);} if(pts.length>8000)pts=pts.slice(-8000); draw();};
+    document.getElementById('pl-reset').onclick=()=>{pts=[];draw();};
+    draw();
+  })();
+
+  // ===================================================================
+  // Figure 2 — histogram vs phi + 68-95-99.7
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('hist');
+    const X0=46,X1=566,Y0=22,Y1=250, LO=-4,HI=4, NB=48, bw=(HI-LO)/NB;
+    const xm=x=>X0+(clamp(x,LO,HI)-LO)/(HI-LO)*(X1-X0);
+    const DMAX=0.45, ym=d=>Y1-clamp(d,0,DMAX)/DMAX*(Y1-Y0);
+    let counts=new Array(NB).fill(0), total=0, mean=0, m2=0, in1=0,in2=0,in3=0;
+    function draw(){
+      svg.textContent='';
+      // sigma bands (nested, behind)
+      [[3,'#eef3fb'],[2,'#e2ecf8'],[1,'#d3e2f4']].forEach(([k,col])=>{
+        svg.appendChild(svgEl('rect',{x:xm(-k),y:Y0,width:xm(k)-xm(-k),height:Y1-Y0,fill:col}));});
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      // bars
+      for(let b=0;b<NB;b++){if(!counts[b])continue;const dens=counts[b]/(total*bw);
+        const x0=X0+(b/NB)*(X1-X0),w=(X1-X0)/NB;
+        svg.appendChild(svgEl('rect',{x:x0+0.4,y:ym(dens),width:Math.max(0.5,w-0.8),height:Y1-ym(dens),fill:'#cfe0f1',stroke:'var(--samp)','stroke-width':0.5}));}
+      // phi curve
+      const pp=[]; for(let i=0;i<=240;i++){const x=LO+(HI-LO)*i/240; pp.push([xm(x),ym(phi(x))]);}
+      svg.appendChild(polyline(pp,'var(--pdf)',2.4));
+      // x ticks
+      [-3,-2,-1,0,1,2,3].forEach(t=>{svg.appendChild(svgEl('line',{x1:xm(t),y1:Y1,x2:xm(t),y2:Y1+5,stroke:'#9aa0ad'}));svg.appendChild(txt(xm(t),Y1+18,t.toString(),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));});
+      svg.appendChild(txt((X0+X1)/2,Y1+34,'standard deviations from the mean  (±1σ, ±2σ, ±3σ bands)',{'font-size':11.5,fill:'#5b6472','text-anchor':'middle'}));
+      svg.appendChild(txt(X1-4,ym(phi(0))+2,'φ(x)',{'font-size':12,fill:'var(--pdf)','text-anchor':'end'}));
+      // readouts
+      document.getElementById('h-n').textContent=total.toLocaleString();
+      document.getElementById('h-mean').textContent=total?mean.toFixed(4):'—';
+      document.getElementById('h-var').textContent=total>1?(m2/(total-1)).toFixed(4):'—';
+      document.getElementById('h-s1').textContent=total?(100*in1/total).toFixed(2)+'%':'—';
+      document.getElementById('h-s2').textContent=total?(100*in2/total).toFixed(2)+'%':'—';
+      document.getElementById('h-s3').textContent=total?(100*in3/total).toFixed(2)+'%':'—';
+    }
+    function add(M){
+      for(let i=0;i<M/2;i++){const pr=bmRandom();
+        for(const z of pr){ total++; const d=z-mean; mean+=d/total; m2+=d*(z-mean);
+          const az=Math.abs(z); if(az<1)in1++; if(az<2)in2++; if(az<3)in3++;
+          const b=Math.floor((z-LO)/bw); if(b>=0&&b<NB)counts[b]++; }
+      }
+      draw();
+    }
+    function reset(){counts=new Array(NB).fill(0);total=0;mean=0;m2=0;in1=in2=in3=0;draw();}
+    document.getElementById('h-add').onclick=()=>add(20000);
+    document.getElementById('h-reset').onclick=reset;
+    add(20000);
+  })();
+
+  // ===================================================================
+  // Figure 3 — shift & scale
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('scaled');
+    const X0=44,X1=566,Y0=20,Y1=178, LO=-6,HI=8;
+    const xm=x=>X0+(x-LO)/(HI-LO)*(X1-X0);
+    const PKMAX=1/(0.5*Math.sqrt(2*Math.PI));   // tallest peak (sigma=0.5) sets y-scale
+    const ym=d=>Y1-clamp(d,0,PKMAX)/PKMAX*(Y1-Y0);
+    let mu=2, sig=1.5;
+    function nd(x){return INV_SQRT_2PI/sig*Math.exp(-0.5*((x-mu)/sig)**2);}
+    function draw(){
+      svg.textContent='';
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      for(let t=-6;t<=8;t+=2){svg.appendChild(svgEl('line',{x1:xm(t),y1:Y1,x2:xm(t),y2:Y1+5,stroke:'#9aa0ad'}));svg.appendChild(txt(xm(t),Y1+17,t.toString(),{'font-size':10,fill:'#8a8f9c','text-anchor':'middle'}));}
+      // mu and mu±sigma marks
+      svg.appendChild(svgEl('line',{x1:xm(mu),y1:Y0,x2:xm(mu),y2:Y1,stroke:'var(--true)','stroke-width':1.4,'stroke-dasharray':'5 4'}));
+      [mu-sig,mu+sig].forEach(v=>svg.appendChild(svgEl('line',{x1:xm(v),y1:ym(nd(v)),x2:xm(v),y2:Y1,stroke:'var(--ctor)','stroke-width':1,'stroke-dasharray':'3 3'})));
+      const pp=[]; for(let i=0;i<=300;i++){const x=LO+(HI-LO)*i/300; pp.push([xm(x),ym(nd(x))]);}
+      svg.appendChild(polyline(pp,'var(--pdf)',2.6));
+      svg.appendChild(txt(xm(mu),Y0+12,'μ',{'font-size':12,fill:'var(--true)','text-anchor':'middle'}));
+      svg.appendChild(txt(xm(mu+sig)+3,ym(nd(mu+sig)),'μ+σ',{'font-size':10.5,fill:'var(--ctor)'}));
+      document.getElementById('sc-muval').textContent=mu.toFixed(1);
+      document.getElementById('sc-sigval').textContent=sig.toFixed(1);
+    }
+    document.getElementById('sc-mu').addEventListener('input',e=>{mu=+e.target.value/10;draw();});
+    document.getElementById('sc-sig').addEventListener('input',e=>{sig=+e.target.value/10;draw();});
+    draw();
+  })();
+})();
+</script>
+
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>

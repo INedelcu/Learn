@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13 — Seeing the noise: image-space convergence — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --rand:#dd6b20; --strat:#2f9e64; --ref:#7c3aed; --true:#d9a500; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--strat)}
+  .callout.warn{border-left-color:var(--rand)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  .twocol{display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:start}
+  @media(max-width:680px){.twocol{grid-template-columns:1fr}}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  #rcanvas{image-rendering:pixelated; width:340px; height:340px; max-width:100%; border:1px solid var(--line); border-radius:8px; background:#000; display:block}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Seeing the noise: image-space convergence</h1>
+<p class="sub">13_image_convergence_ppm.cpp — the capstone. A pixel's color is itself a Monte Carlo integral, so the speckle in a render is exactly the per-pixel estimator variance you've been studying — and it melts as $1/\sqrt N$.</p>
+
+<p class="lead">Everything in this series has been about one estimator and its noise. This file makes that noise <em>visible</em>: it renders a tiny scene where each pixel's true color is the average shade over the pixel's little square — an antialiasing integral — and estimates it with $N$ samples per pixel. Pixels deep inside a shape have zero variance (every sample agrees); pixels on an <strong>edge</strong> disagree, and that disagreement is the speckle. It is the 2-D analogue of a path tracer's noisy penumbrae and glossy highlights.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Each pixel is a Monte Carlo integral over its area, so its noise is the estimator variance from <a href="04_variance_and_clt.html">example 04</a> — concentrated wherever the integrand jumps (edges); averaging $N$ samples per pixel makes random noise fall as $1/\sqrt N$, and stratified sampling (<a href="07_stratified_sampling.html">example 07</a>) does even better because it spreads samples evenly across each edge.</p>
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--rand)"></i> random subpixel jitter</span>
+  <span><i class="dot" style="background:var(--strat)"></i> stratified ($\sqrt N\times\sqrt N$ grid)</span>
+  <span><i class="swatch" style="border-color:var(--ref)"></i> reference (high spp)</span>
+</div>
+
+
+<h2 id="1">1. A pixel's color is a Monte Carlo integral<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>A pixel doesn't cover a single point — it covers a little square of the image. Its correct color is the <strong>average</strong> of the scene over that square:</p>
+
+$$C_{\text{pixel}}=\frac{1}{\text{area}}\int_{\text{pixel}} \text{shade}(u,v)\,du\,dv\;\approx\;\frac1N\sum_{i=1}^N \text{shade}(u_i,v_i),$$
+
+<p>estimated by sampling $N$ points (subpixel positions) inside the square and averaging — the example-03 estimator, once per pixel. Our scene is deliberately trivial — a few flat-shaded circles over a dark background, “shade” = the top-most circle covering the point — so the only thing creating noise is the geometry of the edges.</p>
+
+
+<h2 id="2">2. Where the noise lives<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>If a pixel lies entirely inside one shape, every subpixel sample returns the same shade: the estimate is exact, variance zero. If a pixel straddles an <strong>edge</strong>, some samples land on one shape and some on another — they disagree, so the average is uncertain and jitters from run to run. That is the speckle, and it lives only in thin bands along edges.</p>
+
+<figure>
+<svg viewBox="0 0 680 250" role="img" aria-label="Two zoomed pixels over an edge: an interior pixel whose samples all agree, and an edge pixel whose samples disagree.">
+  <!-- edge: dark shape lower-left, light bg upper-right, boundary a diagonal -->
+  <clipPath id="cl"><rect x="60" y="30" width="300" height="190"/></clipPath>
+  <g clip-path="url(#cl)">
+    <rect x="60" y="30" width="300" height="190" fill="#eef2f6"/>
+    <path d="M60,210 L300,30 L60,30 Z" fill="#3a4250"/>
+  </g>
+  <rect x="60" y="30" width="300" height="190" fill="none" stroke="#cbd0d9"/>
+  <text x="78" y="58" font-size="12.5" fill="#eef2f6">shape</text>
+  <text x="348" y="206" font-size="12.5" fill="#5b6472" text-anchor="end">background</text>
+  <!-- interior pixel (entirely inside the dark shape): every sample lands on the shade -->
+  <rect x="92" y="70" width="48" height="48" fill="none" stroke="var(--strat)" stroke-width="2"/>
+  <g fill="#3a4250" stroke="#d7dde6" stroke-width="0.8"><circle cx="104" cy="82" r="2.8"/><circle cx="125" cy="78" r="2.8"/><circle cx="114" cy="98" r="2.8"/><circle cx="131" cy="104" r="2.8"/><circle cx="101" cy="106" r="2.8"/></g>
+  <rect x="70" y="124" width="92" height="18" rx="3" fill="#ffffff" stroke="#e1e4ea"/>
+  <text x="116" y="137" font-size="11.5" fill="var(--strat)" text-anchor="middle">all agree → var 0</text>
+  <!-- edge pixel (straddles the boundary): samples split between shape and background -->
+  <rect x="200" y="63" width="48" height="48" fill="none" stroke="var(--rand)" stroke-width="2"/>
+  <g stroke-width="0.8"><circle cx="210" cy="80" r="2.8" fill="#3a4250" stroke="#d7dde6"/><circle cx="222" cy="76" r="2.8" fill="#3a4250" stroke="#d7dde6"/><circle cx="212" cy="98" r="2.8" fill="#eef2f6" stroke="#9aa0ad"/><circle cx="234" cy="86" r="2.8" fill="#eef2f6" stroke="#9aa0ad"/><circle cx="224" cy="100" r="2.8" fill="#eef2f6" stroke="#9aa0ad"/></g>
+  <rect x="168" y="118" width="112" height="18" rx="3" fill="#ffffff" stroke="#e1e4ea"/>
+  <text x="224" y="131" font-size="11.5" fill="var(--rand)" text-anchor="middle">disagree → high var</text>
+  <!-- right annotations -->
+  <text x="400" y="110" font-size="14" fill="var(--ink)">Noise = per-pixel variance</text>
+  <text x="400" y="134" font-size="13.5" fill="var(--muted)">→ zero in flat interiors,</text>
+  <text x="400" y="154" font-size="13.5" fill="var(--muted)">→ high in edge bands.</text>
+  <text x="400" y="186" font-size="13" fill="var(--muted)">The 2-D version of a path</text>
+  <text x="400" y="205" font-size="13" fill="var(--muted)">tracer's noisy penumbrae.</text>
+</svg>
+<figcaption>Figure 1. Two pixels over an edge. The <span style="color:var(--strat)">interior</span> pixel's samples all land on the shape and agree — zero variance. The <span style="color:var(--rand)">edge</span> pixel's samples split between shape and background — they disagree, so its estimate is noisy. Noise lives only in the thin edge bands.</figcaption>
+</figure>
+
+
+<h2 id="3">3. Watch the noise melt<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Render the scene live. Pick a sampler and a sample count; the image is computed right here, one Monte Carlo integral per pixel. Crank $N$ up and the edge speckle dissolves. Flip to the <strong>error map</strong> to see exactly where the noise is — the interiors are black (no error), the edges glow.</p>
+
+<figure>
+<div class="twocol">
+  <div>
+    <canvas id="rcanvas" width="180" height="180"></canvas>
+  </div>
+  <div>
+    <div class="panel" style="grid-template-columns:1fr">
+      <div class="row"><span>sampler</span><b id="r-samp">random</b></div>
+      <div class="row"><span>samples / pixel</span><b id="r-spp">16</b></div>
+      <div class="row"><span>RMS error vs reference</span><b id="r-rms" style="color:var(--ref)">—</b></div>
+    </div>
+    <div class="ctl" style="margin-top:14px">sampler:
+      <button id="b-rand" class="sel"><i class="dot" style="background:var(--rand);margin-right:6px;vertical-align:-1px"></i>random</button>
+      <button id="b-strat"><i class="dot" style="background:var(--strat);margin-right:6px;vertical-align:-1px"></i>stratified</button>
+    </div>
+    <div class="ctl">spp:
+      <button class="spp" data-n="1">1</button>
+      <button class="spp sel" data-n="16">16</button>
+      <button class="spp" data-n="64">64</button>
+      <button class="spp" data-n="256">256</button>
+    </div>
+    <div class="ctl">view:
+      <button id="v-img" class="sel">image</button>
+      <button id="v-err">error map</button>
+      <span style="margin-left:auto"></span>
+      <button id="b-roll">Re-roll</button>
+    </div>
+  </div>
+</div>
+<figcaption>Figure 2. Live render of the scene (one Monte Carlo integral per pixel). Raise the sample count and the speckle melts; switch sampler to compare <span style="color:var(--rand)">random</span> vs <span style="color:var(--strat)">stratified</span> jitter at the same cost; the <em>error map</em> (|estimate − reference|, amplified) shows the noise is confined to the edges. RMS is measured against a 1024-spp stratified reference.</figcaption>
+</figure>
+
+
+<h2 id="4">4. Random vs. stratified, at equal cost<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Stratified jitter places one sample in each cell of a $\sqrt N\times\sqrt N$ grid over the pixel (<a href="07_stratified_sampling.html">example 07</a>), so the samples can't clump. At the same $N$ it produces visibly smoother edges than independent random jitter — set the render above to 16 spp and flip between the two samplers, or watch the error map: stratified's edge bands are dimmer.</p>
+
+
+<h2 id="5">5. The convergence, measured<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Render at $N=1,4,16,64,256$ and measure the RMS error of the whole image against a high-quality reference. The numbers the C++ file prints (240×240, reference = 1024 stratified spp):</p>
+
+<table>
+<thead><tr><th class="num">N (spp)</th><th class="num">random RMSE</th><th class="num">×√N</th><th class="num">stratified RMSE</th><th class="num">×√N</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td class="num">2.98e-2</td><td class="num">0.030</td><td class="num">3.14e-2</td><td class="num">0.031</td></tr>
+<tr><td class="num">4</td><td class="num">1.46e-2</td><td class="num">0.029</td><td class="num">1.08e-2</td><td class="num">0.022</td></tr>
+<tr><td class="num">16</td><td class="num">7.74e-3</td><td class="num">0.031</td><td class="num">3.84e-3</td><td class="num">0.015</td></tr>
+<tr><td class="num">64</td><td class="num">3.65e-3</td><td class="num">0.029</td><td class="num">1.40e-3</td><td class="num">0.011</td></tr>
+<tr><td class="num">256</td><td class="num">1.95e-3</td><td class="num">0.031</td><td class="num">5.05e-4</td><td class="num">0.008</td></tr>
+</tbody>
+</table>
+
+<p>Two readings. <strong>Random’s ×√N column is flat</strong> (~0.030): random sampling is locked to the $1/\sqrt N$ law once again. <strong>Stratified’s ×√N column keeps falling</strong>: stratification converges <em>faster</em> than $1/\sqrt N$ here (slope $\approx-\tfrac34$) — at 256 spp its error is about $4\times$ lower than random’s. (The edges are 1-D discontinuities, so stratification helps but not as much as the $1/N^{1.5}$ it gets on a smooth integrand.) Reproduce it live — the fitted slopes confirm it:</p>
+
+<figure>
+<svg id="conv" viewBox="0 0 600 350" role="img" aria-label="Log-log RMS error vs samples per pixel for random and stratified, with fitted slopes."></svg>
+<div class="ctl">
+  <button id="cv-run">Run (renders 10 images)</button>
+  <span class="small">fitted slope — random: <b id="cv-sr" style="color:var(--rand)">—</b> &nbsp; stratified: <b id="cv-ss" style="color:var(--strat)">—</b></span>
+</div>
+<figcaption>Figure 3. RMS image error vs. samples per pixel, log–log (computed live on a small grid). <span style="color:var(--rand)">Random</span> tracks slope $-\tfrac12$; <span style="color:var(--strat)">stratified</span> is steeper (≈$-\tfrac34$) and lower throughout — the same advantage as example 07, here on a 2-D antialiasing integral.</figcaption>
+</figure>
+
+
+<h2 id="6">6. This is the renderer’s progressive averaging<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<div class="callout">
+<strong>Rendering link.</strong> A real path tracer accumulates samples over <em>frames</em> rather than all at once, but it is the identical running mean. In <code>RayGenerator.raytrace</code> the new frame's radiance is blended into the accumulation buffer with <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L108" target="_blank" rel="noopener"><code>lerp(prevRadiance, radiance, 1/(g_ConvergenceStep+1))</code></a> — exactly $\bar x_n=\bar x_{n-1}+\tfrac1n(x_n-\bar x_{n-1})$, the incremental average from <a href="01_random_and_estimators.html">example 01</a>. Each frame is one more sample per pixel, so the image denoises as $1/\sqrt{\text{frames}}$ — the convergence you just watched, spread over time.</p>
+</div>
+
+
+<h2 id="7">7. The code<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+<p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/13_image_convergence_ppm.cpp" target="_blank" rel="noopener"><code>13_image_convergence_ppm.cpp</code></a>.</p>
+
+<pre class="language-cpp"><code class="language-cpp">// each pixel's shade = average over N subpixel samples (its Monte Carlo integral)
+double RenderPixel(int px, int py, int N, bool stratified, uint32_t salt) {
+    Rng rng; rng.SetSequence((py*W + px)*9781u + salt);   // per-pixel seed
+    double sum = 0;
+    if (stratified) {                                     // √N × √N jittered grid
+        int s = lround(sqrt((double)N));
+        for (int j=0;j&lt;s;++j) for (int i=0;i&lt;s;++i) {
+            double u=(px+(i+rng.NextFloat())/s)/W, v=(py+(j+rng.NextFloat())/s)/H;
+            sum += SceneShade(u,v);
+        }
+        return sum/(s*s);
+    }
+    for (int k=0;k&lt;N;++k) {                               // independent random jitter
+        double u=(px+rng.NextFloat())/W, v=(py+rng.NextFloat())/H;
+        sum += SceneShade(u,v);
+    }
+    return sum/N;
+}
+// write each image as a PPM (P6: tiny text header + raw RGB), measure RMSE vs a
+// 1024-spp stratified reference, print random/stratified RMSE and RMSE·√N.</code></pre>
+
+<p>It writes <code>reference.ppm</code> plus <code>random_NNNN.ppm</code> / <code>stratified_NNNN.ppm</code> into <code>.\images\</code> — open <code>random_0001.ppm</code> then <code>random_0256.ppm</code> to watch the speckle melt, or compare <code>random_0016.ppm</code> with <code>stratified_0016.ppm</code> at equal cost.</p>
+
+
+<h2 id="8">8. Takeaways<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+<ul>
+<li><strong>A pixel is a Monte Carlo integral</strong> over its area; its color is the example-03 estimator, once per pixel.</li>
+<li><strong>Noise = per-pixel variance,</strong> concentrated where the integrand jumps (edges) — zero in flat interiors. The 2-D analogue of noisy penumbrae and glossy highlights.</li>
+<li><strong>Random noise falls as $1/\sqrt N$</strong> (the ×√N column is flat); 4× the samples ≈ 2× less noise.</li>
+<li><strong>Stratified does better</strong> at equal cost — here ≈$N^{-3/4}$, ~4× lower error at 256 spp — by spreading samples evenly across each edge.</li>
+<li><strong>It’s the renderer’s progressive averaging:</strong> per-frame <code>lerp(prev, new, 1/(step+1))</code> is the same incremental mean, denoising as $1/\sqrt{\text{frames}}$.</li>
+</ul>
+
+<p class="small">References — antialiasing as integration and pixel sampling: Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §8.1–8.2; stratified pixel samples, §8.2.1. Progressive accumulation in the renderer: <code>RayGenerator.raytrace</code> (<a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L108" target="_blank" rel="noopener">L108</a>). PPM format: Netpbm.</p>
+
+</div>
+
+<script>
+(function(){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  function svgEl(t,a){const e=document.createElementNS('http://www.w3.org/2000/svg',t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+  function polyline(pts,stroke,w,dash){const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');const a={d,fill:'none',stroke,'stroke-width':w||2.2,'stroke-linejoin':'round','stroke-linecap':'round'};if(dash)a['stroke-dasharray']=dash;return svgEl('path',a);}
+  function txt(x,y,s,a){const e=svgEl('text',Object.assign({x,y},a||{}));e.textContent=s;return e;}
+
+  // ---- the shared "scene" (matches the .cpp) -----------------------------
+  const scene=[{cx:.36,cy:.42,r:.24,sh:.85},{cx:.62,cy:.56,r:.28,sh:.45},{cx:.50,cy:.74,r:.14,sh:1.0},{cx:.74,cy:.30,r:.12,sh:.22}];
+  const BG=0.06, W=180, H=180;
+  function shade(u,v){let s=BG;for(let k=0;k<scene.length;k++){const c=scene[k],dx=u-c.cx,dy=v-c.cy;if(dx*dx+dy*dy<=c.r*c.r)s=c.sh;}return s;}
+  function renderPixel(px,py,N,strat){
+    let sum=0;
+    if(strat){const s=Math.round(Math.sqrt(N));
+      for(let j=0;j<s;j++)for(let i=0;i<s;i++){const u=(px+(i+Math.random())/s)/W,v=(py+(j+Math.random())/s)/H;sum+=shade(u,v);}
+      return sum/(s*s);
+    }
+    for(let k=0;k<N;k++){const u=(px+Math.random())/W,v=(py+Math.random())/H;sum+=shade(u,v);}
+    return sum/N;
+  }
+  function renderImage(N,strat){const img=new Float64Array(W*H);for(let y=0;y<H;y++)for(let x=0;x<W;x++)img[y*W+x]=renderPixel(x,y,N,strat);return img;}
+  let _ref=null;
+  function reference(){ if(!_ref) _ref=renderImage(1024,true); return _ref; }
+  function rms(img){const r=reference();let se=0;for(let i=0;i<W*H;i++){const d=img[i]-r[i];se+=d*d;}return Math.sqrt(se/(W*H));}
+
+  // ===================================================================
+  // Figure 2 — live render
+  // ===================================================================
+  (function(){
+    const cv=document.getElementById('rcanvas'), ctx=cv.getContext('2d');
+    let N=16, strat=false, mode='img', img=null;
+    function paint(){
+      const id=ctx.createImageData(W,H);
+      const r = mode==='err'?reference():null;
+      for(let i=0;i<W*H;i++){
+        let g = mode==='err' ? Math.min(1, 8*Math.abs(img[i]-r[i])) : img[i];
+        const b=clamp(Math.round(g*255),0,255);
+        id.data[i*4]=b; id.data[i*4+1]=b; id.data[i*4+2]=b; id.data[i*4+3]=255;
+      }
+      ctx.putImageData(id,0,0);
+    }
+    function render(updateRms){
+      img=renderImage(N,strat); paint();
+      const rs=document.getElementById('r-samp'); rs.textContent=strat?'stratified':'random'; rs.style.color=strat?'var(--strat)':'var(--rand)';
+      document.getElementById('r-spp').textContent=N;
+      if(updateRms){ document.getElementById('r-rms').textContent='…';
+        setTimeout(()=>{ document.getElementById('r-rms').textContent=rms(img).toExponential(2); },20); }
+    }
+    document.getElementById('b-rand').onclick=()=>{strat=false;sel('b-rand','b-strat');render(true);};
+    document.getElementById('b-strat').onclick=()=>{strat=true;sel('b-strat','b-rand');render(true);};
+    function sel(on,off){document.getElementById(on).classList.add('sel');document.getElementById(off).classList.remove('sel');}
+    document.querySelectorAll('.spp').forEach(btn=>btn.onclick=()=>{N=+btn.dataset.n;document.querySelectorAll('.spp').forEach(b=>b.classList.toggle('sel',b===btn));render(true);});
+    document.getElementById('v-img').onclick=()=>{mode='img';sel('v-img','v-err');paint();};
+    document.getElementById('v-err').onclick=()=>{mode='err';sel('v-err','v-img');paint();};
+    document.getElementById('b-roll').onclick=()=>render(true);
+    // first paint fast (no reference); fill RMS shortly after
+    render(false);
+    setTimeout(()=>{ document.getElementById('r-rms').textContent=rms(img).toExponential(2); }, 60);
+  })();
+
+  // ===================================================================
+  // Figure 3 — convergence (log-log)
+  // ===================================================================
+  (function(){
+    const svg=document.getElementById('conv');
+    const X0=64,X1=560,Y0=28,Y1=300, EX0=0,EX1=8, EY0=-4,EY1=-1;   // x:2^0..2^8, y:10^-4..10^-1
+    const xm=N=>X0+(Math.log2(N)-EX0)/(EX1-EX0)*(X1-X0);
+    const ym=e=>Y1-(Math.log10(clamp(e,1e-4,1e-1))-EY0)/(EY1-EY0)*(Y1-Y0);
+    function backdrop(){
+      svg.textContent='';
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y1,x2:X1,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      svg.appendChild(svgEl('line',{x1:X0,y1:Y0,x2:X0,y2:Y1,stroke:'#cbd0d9','stroke-width':1.2}));
+      [1,4,16,64,256].forEach(n=>{const x=xm(n);svg.appendChild(svgEl('line',{x1:x,y1:Y0,x2:x,y2:Y1,stroke:'#eef0f4'}));svg.appendChild(txt(x,Y1+18,n.toString(),{'font-size':10.5,fill:'#8a8f9c','text-anchor':'middle'}));});
+      for(let e=EY0;e<=EY1;e++){const y=ym(Math.pow(10,e));svg.appendChild(svgEl('line',{x1:X0,y1:y,x2:X1,y2:y,stroke:'#eef0f4'}));svg.appendChild(txt(X0-6,y+4,'10^'+e,{'font-size':10,fill:'#8a8f9c','text-anchor':'end'}));}
+      svg.appendChild(txt((X0+X1)/2,Y1+38,'samples per pixel N  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle'}));
+      svg.appendChild(txt(16,(Y0+Y1)/2,'RMS image error  (log scale)',{'font-size':12.5,fill:'#5b6472','text-anchor':'middle',transform:`rotate(-90 16 ${(Y0+Y1)/2})`}));
+      // slope guides anchored at N=1, err 0.03
+      const g12=n=>0.03/Math.sqrt(n), g34=n=>0.03/Math.pow(n,0.75);
+      svg.appendChild(polyline([[xm(1),ym(g12(1))],[xm(256),ym(g12(256))]],'#9aa0ad',1.6,'6 4'));
+      svg.appendChild(polyline([[xm(1),ym(g34(1))],[xm(256),ym(g34(256))]],'#9aa0ad',1.6,'6 4'));
+      svg.appendChild(txt(xm(96),ym(g12(96))-6,'slope −½',{'font-size':11,fill:'#8a8f9c'}));
+      svg.appendChild(txt(xm(96),ym(g34(96))+14,'slope −¾',{'font-size':11,fill:'#8a8f9c'}));
+      svg.appendChild(svgEl('line',{x1:X1-180,y1:Y0+12,x2:X1-154,y2:Y0+12,stroke:'var(--rand)','stroke-width':3}));svg.appendChild(txt(X1-148,Y0+16,'random',{'font-size':12,fill:'#5b6472'}));
+      svg.appendChild(svgEl('line',{x1:X1-90,y1:Y0+12,x2:X1-64,y2:Y0+12,stroke:'var(--strat)','stroke-width':3}));svg.appendChild(txt(X1-58,Y0+16,'stratified',{'font-size':12,fill:'#5b6472'}));
+      svg.appendChild(svgEl('g',{id:'conv-data'}));
+    }
+    function fit(pts){const xs=pts.map(p=>Math.log10(p[0])),ys=pts.map(p=>Math.log10(p[1]));const n=xs.length,mx=xs.reduce((a,b)=>a+b)/n,my=ys.reduce((a,b)=>a+b)/n;let nu=0,de=0;for(let i=0;i<n;i++){nu+=(xs[i]-mx)*(ys[i]-my);de+=(xs[i]-mx)**2;}return nu/de;}
+    function run(){
+      backdrop();
+      reference();
+      const Ns=[1,4,16,64,256], rp=[],sp=[];
+      Ns.forEach(n=>{ rp.push([n, rms(renderImage(n,false))]); sp.push([n, rms(renderImage(n,true))]); });
+      const layer=document.getElementById('conv-data');
+      layer.appendChild(polyline(rp.map(p=>[xm(p[0]),ym(p[1])]),'var(--rand)',2.4));
+      layer.appendChild(polyline(sp.map(p=>[xm(p[0]),ym(p[1])]),'var(--strat)',2.4));
+      rp.forEach(p=>layer.appendChild(svgEl('circle',{cx:xm(p[0]),cy:ym(p[1]),r:2.8,fill:'var(--rand)'})));
+      sp.forEach(p=>layer.appendChild(svgEl('circle',{cx:xm(p[0]),cy:ym(p[1]),r:2.8,fill:'var(--strat)'})));
+      document.getElementById('cv-sr').textContent=fit(rp).toFixed(2);
+      document.getElementById('cv-ss').textContent=fit(sp).toFixed(2);
+    }
+    document.getElementById('cv-run').onclick=run;
+    backdrop();
+  })();
+})();
+</script>
+
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>

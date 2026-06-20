@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>19 — Importance-sampling a glossy BRDF: GGX VNDF — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --bar:#2b6cb0; --cdf:#7c3aed; --sun:#dd6b20; --u:#d9a500; --hit:#2f9e64; --uni:#8a93a2; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--hit)}
+  .callout.warn{border-left-color:var(--sun)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:150px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .twocanvas{display:flex; gap:16px; flex-wrap:wrap; justify-content:center}
+  .twocanvas>div{flex:1 1 220px; text-align:center; min-width:180px}
+  canvas{display:block; width:100%; max-width:240px; margin:0 auto; image-rendering:pixelated; border:1px solid var(--line); border-radius:8px; background:#fff}
+  .pcap{font-size:14px; font-weight:600; margin:8px 0 4px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Importance-sampling a glossy BRDF: GGX with VNDF</h1>
+<p class="sub">19_ggx_vndf_sampling.cpp — the series' destination. The renderer's specular sampler: draw a microfacet normal from the normals <em>visible</em> to the viewer (Heitz 2018), reflect, and the Monte&nbsp;Carlo weight collapses to <code>F·G2/G1</code>.</p>
+
+<p class="lead">Everything so far has been building toward this. <a href="06_importance_sampling.html">Importance sampling</a> said: shape your sampling density like the integrand. <a href="08_hemisphere_sampling.html">Hemisphere sampling</a> did it for the cosine lobe. Real glossy reflection is the hard case — the GGX microfacet BRDF concentrates outgoing energy into a tight lobe around the mirror direction, and that lobe <em>moves with the view</em>. Firing rays uniformly over the hemisphere almost never lands in it, so the variance is catastrophic. The fix the renderer actually uses is <strong>visible-normal (VNDF) sampling</strong>, and its payoff is an almost magical cancellation in the Monte Carlo weight.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> The microfacet BRDF is $f_r=\dfrac{D(h)\,G_2\,F}{4\,(n\!\cdot\!\omega_o)(n\!\cdot\!\omega_i)}$; VNDF sampling draws a half-vector $h$ from the distribution of microfacet normals <em>visible</em> from $\omega_o$ and reflects $\omega_o$ about it, after which the weight $f_r\cos\theta_i/\text{pdf}$ collapses to the bounded, cheap $\;F\,G_2(\omega_o,\omega_i)/G_1(\omega_o)\;$ (Heitz 2018, eq. 19) — orders of magnitude less variance than uniform sampling, the gap widening as the surface gets smoother.</p>
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--sun)"></i> GGX specular lobe</span>
+  <span><i class="dot" style="background:var(--bar)"></i> VNDF samples</span>
+  <span><i class="dot" style="background:var(--uni)"></i> uniform-hemisphere samples</span>
+  <span><i class="swatch" style="border-color:var(--hit)"></i> quadrature reference</span>
+</div>
+
+
+<h2 id="1">1. Why glossy reflection is hard<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Roughness $\alpha$ controls how tightly the microfacet normals cluster around the surface normal (the renderer uses $\alpha=(1-\text{smoothness})^2$). Small $\alpha$ means a near-mirror: the reflected lobe is a needle pointed at the mirror direction. The plot below is that lobe — the BRDF times $\cos\theta_i$ as a function of outgoing direction in the plane of incidence. Drag the roughness and the view angle: the lobe sharpens toward a spike as $\alpha\to 0$ and swings to follow the mirror direction as the view tilts. A sampler that ignores this — uniform over the hemisphere — puts almost none of its samples under the spike.</p>
+
+<figure>
+<svg id="fig-lobe" viewBox="0 0 600 300" role="img" aria-label="Polar plot of the GGX specular lobe in the plane of incidence, sharpening as roughness decreases."></svg>
+<div class="ctl">
+  roughness $\alpha$ = <b id="lb-aval" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">0.30</b>
+  <input id="lb-a" type="range" min="5" max="80" value="30" step="1">
+  &nbsp; view angle $\theta_o$ = <b id="lb-tval" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">30°</b>
+  <input id="lb-t" type="range" min="0" max="80" value="30" step="1">
+</div>
+<figcaption>Figure 1. The GGX lobe $f_r\cos\theta_i$ in the incidence plane (normalized). The <span style="color:var(--sun)">orange lobe</span> peaks at the mirror direction (opposite the <span style="color:var(--bar)">view</span> across the normal). Lower the roughness and it collapses to a thin spike; raise the view angle and it sweeps sideways. This moving spike is what makes uniform sampling hopeless.</figcaption>
+</figure>
+
+
+<h2 id="2">2. The microfacet BRDF<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>A glossy surface is modeled as a field of tiny perfect mirrors (microfacets). Two functions describe it:</p>
+<ul>
+<li>$D(h)$ — the <strong>normal distribution</strong>: how many microfacets are oriented with normal $h$. For GGX, $D$ is sharply peaked at $h=n$ for small $\alpha$. A microfacet reflects $\omega_o$ into $\omega_i$ only if its normal is the half-vector $h=\widehat{\omega_o+\omega_i}$.</li>
+<li>$G_2(\omega_o,\omega_i)$ — the <strong>Smith masking-shadowing</strong> term: the fraction of those microfacets that are neither hidden from the viewer nor in shadow from the light. $G_1$ is the one-sided version (masking from $\omega_o$ alone).</li>
+</ul>
+$$f_r(\omega_o,\omega_i)=\frac{D(h)\,G_2(\omega_o,\omega_i)\,F}{4\,(n\!\cdot\!\omega_o)(n\!\cdot\!\omega_i)},\qquad h=\widehat{\omega_o+\omega_i}.$$
+<p>$F$ is the Fresnel reflectance; we set $F=1$ here to isolate the geometry. The sharp, view-dependent factor is $D$ — exactly the part we must sample well.</p>
+
+
+<h2 id="3">3. Visible-normal sampling and the magic weight<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The naive idea is to sample $h\propto D(h)$ and reflect. <strong>VNDF</strong> (Heitz 2018) does better: it samples $h$ from the microfacet normals actually <em>visible</em> from $\omega_o$ — facets pointing away from the viewer can never contribute, so sampling them is wasted. Mechanically: stretch $\omega_o$ by $\alpha$, sample a point on the projected hemisphere disk, and unstretch. Then $\omega_i=\text{reflect}(\omega_o,h)$.</p>
+
+<p>The reward is what happens to the estimator weight. Writing out $f_r\cos\theta_i$ divided by the VNDF pdf of $\omega_i$, the $D$, the Jacobian of the reflection, and the cosines all cancel, leaving</p>
+$$\text{weight}=\frac{f_r\cos\theta_i}{\text{pdf}(\omega_i)}=\frac{F\,G_2(\omega_o,\omega_i)}{G_1(\omega_o)}.$$
+<p>No $D$, no division by tiny cosines, no chance of a spike — just a bounded ratio of Smith terms, near 1. Below, watch where the two samplers send their rays: VNDF clusters under the lobe, uniform scatters everywhere.</p>
+
+<figure>
+<div class="twocanvas">
+  <div>
+    <div class="pcap" style="color:var(--bar)">VNDF samples</div>
+    <canvas id="sc-vndf" width="220" height="220"></canvas>
+  </div>
+  <div>
+    <div class="pcap" style="color:var(--uni)">uniform hemisphere</div>
+    <canvas id="sc-uni" width="220" height="220"></canvas>
+  </div>
+</div>
+<div class="ctl">
+  roughness $\alpha$ = <b id="sc-aval" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">0.20</b>
+  <input id="sc-a" type="range" min="5" max="80" value="20" step="1">
+  &nbsp; view $\theta_o$ = <b id="sc-tval" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">45°</b>
+  <input id="sc-t" type="range" min="0" max="80" value="45" step="1">
+  <button id="sc-roll">Re-roll</button>
+</div>
+<figcaption>Figure 2. 600 sampled reflection directions $\omega_i$, viewed top-down on the hemisphere disk (each dot is $(\omega_{i,x},\omega_{i,y})$). The <span style="color:var(--hit)">green ✕</span> is the mirror direction. <span style="color:var(--bar)">VNDF</span> samples concentrate around it — tightly for low roughness — so nearly every ray carries useful energy; <span style="color:var(--uni)">uniform</span> samples ignore the lobe entirely.</figcaption>
+</figure>
+
+
+<h2 id="4">4. It's correct, and it crushes the variance<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Two claims to verify: that the $F\,G_2/G_1$ weight is right, and that it pays off. The C++ file estimates the single-scatter directional albedo $E(\omega_o)=\int_{\mathcal H} f_r\cos\theta_i\,d\omega_i$ (with $F=1$) by VNDF — simply the average of $G_2/G_1$ — and checks it against a deterministic quadrature of the hemisphere. They agree to ~3 digits, and the VNDF variance is hundreds to thousands of times below uniform's:</p>
+
+<table>
+<thead><tr><th class="num">θₒ</th><th class="num">α</th><th class="num">E (quadrature)</th><th class="num">E (VNDF)</th><th class="num">variance: uniform / VNDF</th></tr></thead>
+<tbody>
+<tr><td class="num">20°</td><td class="num">0.10</td><td class="num">0.98742</td><td class="num">0.98753</td><td class="num">1602×</td></tr>
+<tr><td class="num">20°</td><td class="num">0.30</td><td class="num">0.87156</td><td class="num">0.87143</td><td class="num">16×</td></tr>
+<tr><td class="num">20°</td><td class="num">0.60</td><td class="num">0.59314</td><td class="num">0.59318</td><td class="num">1×</td></tr>
+<tr><td class="num">60°</td><td class="num">0.10</td><td class="num">0.96921</td><td class="num">0.96922</td><td class="num">1764×</td></tr>
+<tr><td class="num">60°</td><td class="num">0.30</td><td class="num">0.82171</td><td class="num">0.82139</td><td class="num">26×</td></tr>
+<tr><td class="num">60°</td><td class="num">0.60</td><td class="num">0.64267</td><td class="num">0.64264</td><td class="num">2×</td></tr>
+</tbody>
+</table>
+
+<p>Run it live. The VNDF estimate locks onto the quadrature reference almost immediately; the uniform estimate thrashes — and the smoother the surface, the more hopeless it gets (at $\alpha=0.1$ it almost never finds the lobe).</p>
+
+<figure>
+<svg id="fig-conv" viewBox="0 0 600 300" role="img" aria-label="Running estimate of the directional albedo for VNDF and uniform sampling converging to the quadrature reference."></svg>
+<div class="ctl">
+  roughness $\alpha$:
+  <button class="cv-a sel" data-a="0.1">0.10</button>
+  <button class="cv-a" data-a="0.3">0.30</button>
+  <button class="cv-a" data-a="0.6">0.60</button>
+  <span style="margin-left:auto"></span>
+  <button id="cv-run">+20,000 samples</button>
+  <button id="cv-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>samples</span><b id="cv-n">0</b></div>
+  <div class="row"><span>quadrature $E(\omega_o)$</span><b id="cv-quad" style="color:var(--hit)">—</b></div>
+  <div class="row"><span>VNDF estimate</span><b id="cv-vndf" style="color:var(--bar)">—</b></div>
+  <div class="row"><span>uniform estimate</span><b id="cv-uni" style="color:var(--uni)">—</b></div>
+  <div class="row"><span>variance ratio (uni / VNDF)</span><b id="cv-ratio" style="color:var(--sun)">—</b></div>
+</div>
+<figcaption>Figure 3. Running directional-albedo estimate at $\theta_o=30°$, on a log sample axis. <span style="color:var(--bar)">VNDF</span> sits on the <span style="color:var(--hit)">quadrature reference</span> from the first few samples; <span style="color:var(--uni)">uniform</span> wanders far above and below. Switch to $\alpha=0.10$ and the uniform estimate barely moves toward the truth — the variance ratio climbs into the thousands.</figcaption>
+</figure>
+
+
+<h2 id="5">5. The leftover: $E(\omega_o)&lt;1$<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Notice every albedo above is less than 1, and it drops as roughness rises (to ~0.59 at $\alpha=0.6$). A perfectly reflecting surface ($F=1$) should return <em>all</em> its energy, so where did it go? The Smith $G_2$ term only accounts for light masked or shadowed on a <em>single</em> bounce off the microsurface; the energy that bounces between microfacets two or more times is dropped. That missing fraction is the <strong>single-scatter energy loss</strong>, and it is exactly why rough metals rendered with a basic microfacet BRDF look too dark. Recovering it (multiple-scattering / Kulla–Conty compensation) is measured by a white-furnace test — the natural next step beyond this series.</p>
+
+
+<h2 id="6">6. In the renderer<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>This is not a toy: the <code>SampleGgxVNDF</code>, <code>GgxG1/GgxG2</code>, and the $F\,G_2/G_1$ weight in this example mirror the renderer's real specular path. In <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/BRDF.hlsl">PathTracingDemo</a>, the function <code>SampleSpecularGGX</code> in <code>BRDF.hlsl</code> samples a visible normal, reflects the view vector, and returns precisely this weight — the same Heitz-2018 routine, just in HLSL on the GPU. Every glossy highlight the renderer produces is this sampler keeping the variance finite.</p>
+
+<p>That closes the loop. The series began with a coin-flip estimator and the $1/\sqrt N$ law; it ends with the exact importance sampler a production path tracer fires for specular reflection. Random variables, variance, the $f/p$ estimator, importance sampling, stratification, low-discrepancy sequences, RIS — every idea was a step toward placing this one ray well.</p>
+
+
+<h2 id="7">7. The code<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The estimator is the punchline: with VNDF, the specular Monte Carlo weight is just two Smith terms.</p>
+
+<pre class="language-cpp"><code class="language-cpp">// VNDF estimator of E(wo): draw a visible normal, reflect, weight = G2/G1 (F = 1).
+Vec3 hv  = SampleGgxVNDF(wo, a, rng.NextFloat(), rng.NextFloat());  // visible half-vector
+Vec3 wiv = GgxReflect(wo, hv);                                       // omega_i
+double w = (wiv.z &gt; 0.0f) ? GgxG2(wo, wiv, a) / GgxG1(wo, a) : 0.0;  // Heitz 2018, eq. 19
+
+// the Smith terms it is built from:
+float GgxG1(const Vec3&amp; v, float a)              { return 1.0f / (1.0f + GgxLambda(v, a)); }
+float GgxG2(const Vec3&amp; wo, const Vec3&amp; wi, float a) {
+    return 1.0f / (1.0f + GgxLambda(wo, a) + GgxLambda(wi, a));      // height-correlated Smith
+}</code></pre>
+
+<div class="callout">
+<strong>Takeaway.</strong> Glossy reflection has a sharp, view-dependent lobe that uniform sampling can't find. Sampling the GGX <em>visible</em> normals and reflecting puts the ray where the energy is, and the Monte Carlo weight collapses to the bounded $F\,G_2/G_1$ — validated against quadrature to three digits and hundreds-to-thousands of times less noisy than uniform, most of all on smooth surfaces. It is the importance-sampling principle of <a href="06_importance_sampling.html">example 06</a>, applied to the one integral a path tracer evaluates most.</p>
+</div>
+
+<p class="small" style="margin-top:34px">The final entry in the <a href="index.html">Monte Carlo &amp; path tracing explainer series</a>. Previous: <a href="18_resampled_importance_sampling.html">18 — RIS &amp; reservoirs</a>. Foundations: <a href="06_importance_sampling.html">06 — Importance sampling</a>, <a href="08_hemisphere_sampling.html">08 — Hemisphere sampling</a>.</p>
+
+</div>
+
+<script>
+(function(){
+  const NS='http://www.w3.org/2000/svg';
+  function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+  function txt(x,y,s,a){const e=el('text',Object.assign({x,y},a||{}));e.textContent=s;return e;}
+  const PI=Math.PI;
+  // --- Vec3 + GGX (ported from ggx.h) ---
+  const V=(x,y,z)=>({x,y,z});
+  const add=(a,b)=>V(a.x+b.x,a.y+b.y,a.z+b.z);
+  const scl=(a,s)=>V(a.x*s,a.y*s,a.z*s);
+  const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z;
+  const cross=(a,b)=>V(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);
+  const norm=a=>{const l=Math.hypot(a.x,a.y,a.z)||1;return V(a.x/l,a.y/l,a.z/l);};
+  function ggxD(h,a){const a2=a*a,c=h.z,d=c*c*(a2-1)+1;return a2/(PI*d*d);}
+  function lambda(v,a){const c=Math.abs(v.z);if(c>=0.99999)return 0;const t2=(1-c*c)/(c*c);return 0.5*(-1+Math.sqrt(1+a*a*t2));}
+  const G1=(v,a)=>1/(1+lambda(v,a));
+  const G2=(wo,wi,a)=>1/(1+lambda(wo,a)+lambda(wi,a));
+  function brdfNoF(wo,wi,h,a){const d=4*wo.z*wi.z;if(d<=0)return 0;return ggxD(h,a)*G2(wo,wi,a)/d;}
+  function sampleVNDF(wo,a,u1,u2){
+    let Vh=norm(V(a*wo.x,a*wo.y,wo.z));
+    let T1=(Vh.z<0.9999)?norm(cross(V(0,0,1),Vh)):V(1,0,0);
+    let T2=cross(Vh,T1);
+    let r=Math.sqrt(u1),phi=2*PI*u2,t1=r*Math.cos(phi),t2=r*Math.sin(phi);
+    let s=0.5*(1+Vh.z);
+    t2=(1-s)*Math.sqrt(Math.max(0,1-t1*t1))+s*t2;
+    let t3=Math.sqrt(Math.max(0,1-t1*t1-t2*t2));
+    let Nh=add(add(scl(T1,t1),scl(T2,t2)),scl(Vh,t3));
+    return norm(V(a*Nh.x,a*Nh.y,Math.max(1e-6,Nh.z)));
+  }
+  const reflect=(wo,h)=>add(scl(h,2*dot(wo,h)),scl(wo,-1));
+  const woFrom=th=>V(Math.sin(th),0,Math.cos(th));
+
+  // ---------- Figure 1: polar lobe ----------
+  (function(){
+    const svg=document.getElementById('fig-lobe'); if(!svg) return;
+    const Ox=300,Oy=235,Rmax=150;
+    const slA=document.getElementById('lb-a'), slT=document.getElementById('lb-t');
+    const gS=el('g'); svg.appendChild(gS);     // static
+    const gD=el('g'); svg.appendChild(gD);     // dynamic
+    // surface + normal
+    gS.appendChild(el('line',{x1:60,y1:Oy,x2:540,y2:Oy,stroke:'#9aa0ad'}));
+    gS.appendChild(el('line',{x1:Ox,y1:Oy,x2:Ox,y2:Oy-Rmax-12,stroke:'#cbd0d9','stroke-dasharray':'3 3'}));
+    gS.appendChild(txt(Ox+6,Oy-Rmax-6,'normal n',{'font-size':11.5,fill:'var(--muted)'}));
+    function redraw(){
+      while(gD.firstChild)gD.removeChild(gD.firstChild);
+      const a=+slA.value/100, th=+slT.value*PI/180; const wo=woFrom(th);
+      // sample lobe over incidence plane angle ti in (-pi/2, pi/2)
+      const Npt=240; let vals=[], maxv=1e-9;
+      for(let i=0;i<=Npt;i++){const ti=(-PI/2)+(i/Npt)*PI; const wi=V(Math.sin(ti),0,Math.cos(ti));
+        const h=norm(add(wo,wi)); const val=brdfNoF(wo,wi,h,a)*Math.max(0,wi.z); vals.push({ti,val}); if(val>maxv)maxv=val;}
+      let d='M'+Ox+','+Oy+' ';
+      vals.forEach(p=>{const r=p.val/maxv*Rmax; const sx=Ox+r*Math.sin(p.ti), sy=Oy-r*Math.cos(p.ti); d+='L'+sx.toFixed(1)+','+sy.toFixed(1)+' ';});
+      d+='Z';
+      gD.appendChild(el('path',{d:d,fill:'var(--sun)','fill-opacity':0.22,stroke:'var(--sun)','stroke-width':2}));
+      // view arrow (incoming from +x side at angle th)
+      const vx=Ox+Rmax*Math.sin(th), vy=Oy-Rmax*Math.cos(th);
+      gD.appendChild(el('line',{x1:vx,y1:vy,x2:Ox,y2:Oy,stroke:'var(--bar)','stroke-width':2,'marker-end':'url(#lbar)'}));
+      gD.appendChild(txt(vx+4,vy,'view ωₒ',{'font-size':11.5,fill:'var(--bar)'}));
+      // mirror direction (-x side)
+      const mx=Ox-Rmax*Math.sin(th), my=Oy-Rmax*Math.cos(th);
+      gD.appendChild(el('line',{x1:Ox,y1:Oy,x2:mx,y2:my,stroke:'var(--sun)','stroke-width':1.2,'stroke-dasharray':'4 3'}));
+      gD.appendChild(txt(mx-4,my-4,'mirror',{'font-size':11,fill:'var(--sun)','text-anchor':'end'}));
+      document.getElementById('lb-aval').textContent=a.toFixed(2);
+      document.getElementById('lb-tval').textContent=(+slT.value)+'°';
+    }
+    const defs=el('defs'); const m=el('marker',{id:'lbar',markerWidth:8,markerHeight:8,refX:6,refY:3,orient:'auto'});
+    m.appendChild(el('path',{d:'M0,0 L6,3 L0,6 Z',fill:'var(--bar)'})); defs.appendChild(m); svg.insertBefore(defs,svg.firstChild);
+    slA.addEventListener('input',redraw); slT.addEventListener('input',redraw); redraw();
+  })();
+
+  // ---------- Figure 2: sample scatter on the disk ----------
+  (function(){
+    const cv=document.getElementById('sc-vndf'), cu=document.getElementById('sc-uni'); if(!cv) return;
+    const gv=cv.getContext('2d'), gu=cu.getContext('2d'), S=cv.width, Rd=S/2-8, cx=S/2, cy=S/2;
+    const slA=document.getElementById('sc-a'), slT=document.getElementById('sc-t');
+    function base(ctx){ctx.clearRect(0,0,S,S);ctx.fillStyle='#fff';ctx.fillRect(0,0,S,S);ctx.strokeStyle='#cbd0d9';ctx.beginPath();ctx.arc(cx,cy,Rd,0,2*PI);ctx.stroke();}
+    function plotMirror(ctx,wo){const m=reflect(wo,V(0,0,1));const px=cx+m.x*Rd, py=cy-m.y*Rd;ctx.strokeStyle='#2f9e64';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px-5,py-5);ctx.lineTo(px+5,py+5);ctx.moveTo(px+5,py-5);ctx.lineTo(px-5,py+5);ctx.stroke();}
+    function draw(){
+      const a=+slA.value/100, th=+slT.value*PI/180, wo=woFrom(th);
+      base(gv); base(gu);
+      gv.fillStyle='rgba(43,108,176,0.6)'; gu.fillStyle='rgba(138,147,162,0.6)';
+      for(let i=0;i<600;i++){
+        const h=sampleVNDF(wo,a,Math.random(),Math.random()); const wi=reflect(wo,h);
+        if(wi.z>0){gv.fillRect(cx+wi.x*Rd-1.2,cy-wi.y*Rd-1.2,2.4,2.4);}
+        const z=Math.random(), r=Math.sqrt(Math.max(0,1-z*z)), ph=2*PI*Math.random();
+        const u=V(r*Math.cos(ph),r*Math.sin(ph),z); gu.fillRect(cx+u.x*Rd-1.2,cy-u.y*Rd-1.2,2.4,2.4);
+      }
+      plotMirror(gv,wo); plotMirror(gu,wo);
+      document.getElementById('sc-aval').textContent=a.toFixed(2);
+      document.getElementById('sc-tval').textContent=(+slT.value)+'°';
+    }
+    slA.addEventListener('input',draw); slT.addEventListener('input',draw);
+    document.getElementById('sc-roll').addEventListener('click',draw); draw();
+  })();
+
+  // ---------- Figure 3: live convergence ----------
+  (function(){
+    const svg=document.getElementById('fig-conv'); if(!svg) return;
+    const x0=64,x1=560,top=30,bot=250, theta=30*PI/180, wo=woFrom(theta);
+    const px=n=>x0+(Math.log10(Math.max(1,n)))/Math.log10(20000)*(x1-x0);
+    const py=e=>bot-(e/1.1)*(bot-top);
+    const gS=el('g'); svg.appendChild(gS); const gD=el('g'); svg.appendChild(gD);
+    gS.appendChild(el('line',{x1:x0,y1:bot,x2:x1,y2:bot,stroke:'#9aa0ad'}));
+    gS.appendChild(el('line',{x1:x0,y1:top,x2:x0,y2:bot,stroke:'#9aa0ad'}));
+    [0,0.25,0.5,0.75,1].forEach(e=>{gS.appendChild(el('line',{x1:x0,y1:py(e),x2:x1,y2:py(e),stroke:'#eef0f4'}));gS.appendChild(txt(x0-8,py(e)+4,e.toFixed(2),{'font-size':11,fill:'var(--muted)','text-anchor':'end'}));});
+    [1,10,100,1000,10000].forEach(n=>gS.appendChild(txt(px(n),bot+18,n>=1000?(n/1000)+'k':''+n,{'font-size':11,fill:'var(--muted)','text-anchor':'middle'})));
+    gS.appendChild(txt((x0+x1)/2,bot+34,'samples (log)',{'font-size':12,fill:'var(--muted)','text-anchor':'middle'}));
+    gS.appendChild(txt(x0-30,top-12,'E(ωₒ)',{'font-size':12,fill:'var(--muted)'}));
+    let alpha=0.1;
+    function quad(a){const Nt=240,Np=240;let s=0;for(let it=0;it<Nt;it++){const th=(it+0.5)/Nt*(0.5*PI),ct=Math.cos(th),st=Math.sin(th);for(let ip=0;ip<Np;ip++){const ph=(ip+0.5)/Np*2*PI;const wi=V(st*Math.cos(ph),st*Math.sin(ph),ct);const h=norm(add(wo,wi));s+=brdfNoF(wo,wi,h,a)*ct*st;}}return s*(0.5*PI/Nt)*(2*PI/Np);}
+    let Eq=quad(alpha), nV=0,mV=0,m2V=0,nU=0,mU=0,m2U=0, traceV=[], traceU=[];
+    function addV(x){nV++;const d=x-mV;mV+=d/nV;m2V+=d*(x-mV);}
+    function addU(x){nU++;const d=x-mU;mU+=d/nU;m2U+=d*(x-mU);}
+    function run(k){
+      for(let i=0;i<k;i++){
+        const h=sampleVNDF(wo,alpha,Math.random(),Math.random()); const wi=reflect(wo,h);
+        addV(wi.z>0?G2(wo,wi,alpha)/G1(wo,alpha):0);
+        const z=Math.random(), r=Math.sqrt(Math.max(0,1-z*z)), ph=2*PI*Math.random();
+        const u=V(r*Math.cos(ph),r*Math.sin(ph),z); const hh=norm(add(wo,u));
+        addU(2*PI*brdfNoF(wo,u,hh,alpha)*u.z);
+        if(nV===1||nV%Math.max(1,Math.floor(nV/2))===0||i===k-1){traceV.push([nV,mV]);traceU.push([nU,mU]);}
+      }
+      redraw();
+    }
+    function trace(arr,col){let d='';arr.forEach((p,i)=>{d+=(i?'L':'M')+px(p[0]).toFixed(1)+','+py(Math.max(0,Math.min(1.1,p[1]))).toFixed(1)+' ';});return el('path',{d:d.trim(),fill:'none',stroke:col,'stroke-width':2});}
+    function redraw(){
+      while(gD.firstChild)gD.removeChild(gD.firstChild);
+      gD.appendChild(el('line',{x1:x0,y1:py(Eq),x2:x1,y2:py(Eq),stroke:'var(--hit)','stroke-width':1.6,'stroke-dasharray':'6 4'}));
+      gD.appendChild(txt(x1,py(Eq)-6,'quadrature '+Eq.toFixed(3),{'font-size':11,fill:'var(--hit)','text-anchor':'end'}));
+      if(traceU.length)gD.appendChild(trace(traceU,'var(--uni)'));
+      if(traceV.length)gD.appendChild(trace(traceV,'var(--bar)'));
+      document.getElementById('cv-n').textContent=nV.toLocaleString();
+      document.getElementById('cv-quad').textContent=Eq.toFixed(4);
+      document.getElementById('cv-vndf').textContent=nV?mV.toFixed(4):'—';
+      document.getElementById('cv-uni').textContent=nU?mU.toFixed(4):'—';
+      const vV=nV>1?m2V/(nV-1):0, vU=nU>1?m2U/(nU-1):0;
+      document.getElementById('cv-ratio').textContent=(vV>0)?(vU/vV).toFixed(0)+'×':'—';
+    }
+    function reset(){nV=mV=m2V=nU=mU=m2U=0;traceV=[];traceU=[];redraw();}
+    document.querySelectorAll('.cv-a').forEach(b=>b.addEventListener('click',()=>{
+      document.querySelectorAll('.cv-a').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+      alpha=+b.dataset.a; Eq=quad(alpha); reset(); run(20000);
+    }));
+    document.getElementById('cv-run').addEventListener('click',()=>run(20000));
+    document.getElementById('cv-reset').addEventListener('click',reset);
+    run(20000);
+  })();
+})();
+</script>
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>

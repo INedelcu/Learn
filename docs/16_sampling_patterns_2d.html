@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>16 — Seeing sample patterns: random vs stratified vs Halton — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --rand:#dd6b20; --strat:#2f9e64; --halt:#7c3aed; --true:#d9a500; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--strat)}
+  .callout.warn{border-left-color:var(--rand)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .scatter{display:flex; gap:14px; flex-wrap:wrap; justify-content:center}
+  .scatter>div{flex:1 1 200px; text-align:center; min-width:170px}
+  canvas{display:block; width:100%; max-width:240px; margin:0 auto; image-rendering:pixelated; border:1px solid var(--line); border-radius:8px; background:#fff}
+  .pcap{font-size:14px; font-weight:600; margin:8px 0 2px}
+  .met{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Seeing sample patterns: random vs stratified vs Halton</h1>
+<p class="sub">16_sampling_patterns_2d.cpp — examples 07 and 11 argued with numbers that well-spread samples integrate better. This one shows the same thing with pictures, then lines the pictures up against the error table.</p>
+
+<p class="lead">Monte Carlo error is, at bottom, about <em>where the samples land</em>. Independent random points clump together and leave gaps; the clumps are redundant work and the gaps are unsampled regions — together they are the variance. Two cures from earlier in the series fix this by construction: <strong>stratification</strong> (<a href="07_stratified_sampling.html">example 07</a>) puts one jittered point in each grid cell, and <strong>low-discrepancy sequences</strong> (<a href="11_low_discrepancy.html">example 11</a>) lay points down so evenly that no clump ever forms. Here we scatter 256 points all three ways and watch the difference — then confirm it in the integration error.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Random samples clump (some grid cells get 3–4 points, a third get none); stratified guarantees exactly one per cell; Halton stays globally even at every prefix — and on the smooth test integral $\iint_{[0,1]^2} e^{x+y}$ that visual difference shows up directly as convergence rate: random error falls as $1/\sqrt N$ while stratified and Halton fall close to $1/N$.</p>
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--rand)"></i> random (independent uniform)</span>
+  <span><i class="dot" style="background:var(--strat)"></i> stratified (jittered grid)</span>
+  <span><i class="dot" style="background:var(--halt)"></i> Halton (radical inverse, bases 2 &amp; 3)</span>
+</div>
+
+
+<h2 id="1">1. Three ways to place 256 points<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Each panel below drops $N$ points into the unit square over a $\sqrt N\times\sqrt N$ grid. <strong>Random</strong> draws each coordinate independently. <strong>Stratified</strong> places one point at a jittered position inside each cell, $x_i=(i+\xi)/\sqrt N$. <strong>Halton</strong> is deterministic: the $i$-th point is $\big(\Phi_2(i),\,\Phi_3(i)\big)$, the radical inverses of $i$ in bases 2 and 3. Re-roll to redraw the randomized two (Halton never changes), and watch the cell-occupancy numbers underneath.</p>
+
+<figure>
+<div class="scatter">
+  <div>
+    <div class="pcap" style="color:var(--rand)">random</div>
+    <canvas id="sc-rand" width="240" height="240"></canvas>
+    <div class="met" id="m-rand">—</div>
+  </div>
+  <div>
+    <div class="pcap" style="color:var(--strat)">stratified</div>
+    <canvas id="sc-strat" width="240" height="240"></canvas>
+    <div class="met" id="m-strat">—</div>
+  </div>
+  <div>
+    <div class="pcap" style="color:var(--halt)">Halton</div>
+    <canvas id="sc-halt" width="240" height="240"></canvas>
+    <div class="met" id="m-halt">—</div>
+  </div>
+</div>
+<div class="ctl">
+  N:
+  <button class="nbtn" data-n="64">64</button>
+  <button class="nbtn sel" data-n="256">256</button>
+  <button class="nbtn" data-n="1024">1024</button>
+  <span style="margin-left:auto"></span>
+  <button id="reroll">Re-roll random</button>
+</div>
+<figcaption>Figure 1. The same point count, placed three ways, with the $\sqrt N\times\sqrt N$ grid drawn faintly. "empty cells" is the fraction of grid cells with no point; "fullest" is the most points in any one cell. Random leaves a large fraction of cells empty and piles several into others; stratified is exactly one per cell (0% empty, fullest 1); Halton is nearly as even with no random clumping.</figcaption>
+</figure>
+
+
+<h2 id="2">2. Why clumps are variance<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Drop $N$ points randomly into $N$ cells and the count in each cell is roughly Poisson with mean 1: about <strong>37% of cells end up empty</strong>, and a comparable number get two, three, or more. The empty cells are regions the estimator never looks at; the doubled-up cells are samples that mostly repeat information a neighbour already gave. Both inflate the variance. Stratification removes the failure outright — one sample per cell, so no cell is ever empty or crowded — and a low-discrepancy sequence achieves nearly the same evenness deterministically, and it stays even <em>at every prefix length</em>, not only at the full count. The occupancy numbers under Figure 1 are this paragraph made measurable.</p>
+
+
+<h2 id="3">3. The same story as numbers<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Estimate the smooth, separable integral from <a href="11_low_discrepancy.html">example 11</a>,</p>
+$$\iint_{[0,1]^2} e^{x+y}\,dx\,dy=(e-1)^2=2.9524924,$$
+<p>with each sampler, and measure the error (RMSE over 256 trials for the randomized methods; Halton is deterministic so it is a single error). The numbers the C++ file prints:</p>
+
+<table>
+<thead><tr><th class="num">N</th><th class="num">random RMSE</th><th class="num">stratified RMSE</th><th class="num">Halton error</th></tr></thead>
+<tbody>
+<tr><td class="num">16</td><td class="num">2.912e−1</td><td class="num">7.803e−2</td><td class="num">3.044e−1</td></tr>
+<tr><td class="num">64</td><td class="num">1.494e−1</td><td class="num">1.961e−2</td><td class="num">9.122e−2</td></tr>
+<tr><td class="num">256</td><td class="num">7.448e−2</td><td class="num">5.145e−3</td><td class="num">2.607e−2</td></tr>
+<tr><td class="num">1024</td><td class="num">4.015e−2</td><td class="num">1.259e−3</td><td class="num">7.617e−3</td></tr>
+<tr><td class="num">4096</td><td class="num">1.753e−2</td><td class="num">3.398e−4</td><td class="num">2.144e−3</td></tr>
+</tbody>
+</table>
+
+<p>On the log–log plot a convergence <em>rate</em> is a slope. Random sits on the shallow $-\tfrac12$ line (each $4\times$ in $N$ only halves the error); stratified and Halton are much steeper, close to slope $-1$ (each $4\times$ cuts the error roughly fourfold).</p>
+
+<figure>
+<svg id="fig-conv" viewBox="0 0 600 380" role="img" aria-label="Log-log plot of integration error vs sample count for random, stratified, and Halton sampling, with reference slopes."></svg>
+<figcaption>Figure 2. Error vs sample count, log–log. <span style="color:var(--rand)">Random</span> tracks the dashed $1/\sqrt N$ guide; <span style="color:var(--strat)">stratified</span> and <span style="color:var(--halt)">Halton</span> track the dashed $1/N$ guide. The gap is not a smaller constant — it is a steeper slope, so it widens without limit as $N$ grows.</figcaption>
+</figure>
+
+
+<h2 id="4">4. Stratified wins here — but Halton wins where it counts<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>On this 2-D integrand jittered stratification actually edges out Halton. So why do production renderers reach for low-discrepancy sequences? Two reasons stratification can't match:</p>
+<ul>
+<li><strong>It is incremental.</strong> A stratified grid needs its sample count fixed up front (you must know $\sqrt N$ to build the cells). Halton lets you keep adding samples forever — the sequence stays low-discrepancy at every prefix — which is exactly what a progressively-refined render wants.</li>
+<li><strong>It survives high dimensions.</strong> A path sample is not 2-D: pixel $(x,y)$, lens $(u,v)$, a light pick, then two random numbers per bounce. A full stratified grid over $d$ dimensions needs $N^{d}$ cells — impossible past a few dimensions (the <em>curse of dimensionality</em>). Low-discrepancy sequences keep spreading well in dozens of dimensions, which is why pbrt's Halton and Sobol samplers exist.</li>
+</ul>
+<p>The usual production compromise is to stratify or pad-sample the few dimensions that matter most (pixel, lens, first bounce) and rely on a good sequence for the rest.</p>
+
+
+<h2 id="5">5. In the renderer<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Every pixel spends its samples on a multi-dimensional unit hypercube, and spreading those samples evenly is free variance reduction — no extra rays, just better-placed ones. The <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Utils.hlsl">PathTracingDemo</a> renderer keeps it simple: it draws every random number from a per-path <strong>Wang-hash</strong> RNG (<code>WangHash</code> / <code>RandomFloat01</code> in <code>Utils.hlsl</code>), seeded per pixel — i.e. the independent-<span style="color:var(--rand)">random</span> column of the table above, clumps and all. Replacing that with a stratified pixel jitter or a Halton/Sobol sampler is precisely the kind of upgrade this example argues for: the same sample budget, lower noise, just by refusing to let samples clump.</p>
+
+
+<h2 id="6">6. The code<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The three generators are a few lines each; <code>RadicalInverse</code> is example 11's, reused for the Halton coordinates.</p>
+
+<pre class="language-cpp"><code class="language-cpp">static double RadicalInverse(unsigned base, uint64_t a) {
+    const double invBase = 1.0 / base; double invBaseN = 1.0, r = 0.0;
+    while (a) { r += (a % base) * (invBaseN *= invBase); a /= base; }
+    return r;
+}
+
+const int N = 256, s = 16;                      // 16 x 16 grid for stratified
+for (int i = 0; i &lt; N; ++i)                      // RANDOM: independent uniform
+    rnd.push_back({rng.NextFloat(), rng.NextFloat()});
+for (int j = 0; j &lt; s; ++j) for (int i = 0; i &lt; s; ++i)   // STRATIFIED: one per cell
+    strat.push_back({(i + rng.NextFloat()) / s, (j + rng.NextFloat()) / s});
+for (int i = 0; i &lt; N; ++i)                      // HALTON: radical inverse, bases 2 &amp; 3
+    halt.push_back({(float)RadicalInverse(2, i), (float)RadicalInverse(3, i)});</code></pre>
+
+<div class="callout">
+<strong>Takeaway.</strong> The variance you fight in Monte Carlo is visible: it is the clumps and gaps of independent random points. Stratification and low-discrepancy sequences place samples so those clumps never form, turning a $1/\sqrt N$ method into a near-$1/N$ one for free. Stratification is simplest in low dimensions; low-discrepancy sequences are what keep that evenness in the high-dimensional hypercube a path tracer actually samples.
+</div>
+
+<p class="small" style="margin-top:34px">Part of the <a href="index.html">Monte Carlo &amp; path tracing explainer series</a>. Previous: <a href="15_env_map_2d_sampling.html">15 — 2-D environment-map sampling</a>. Related: <a href="07_stratified_sampling.html">07 — Stratified sampling</a>, <a href="11_low_discrepancy.html">11 — Low-discrepancy sequences</a>.</p>
+
+</div>
+
+<script>
+(function(){
+  // ---------- Figure 1: scatter trio ----------
+  function radInv(base,a){let inv=1/base, invN=1, r=0; while(a>0){r+=(a%base)*(invN*=inv); a=Math.floor(a/base);} return r;}
+  function genRandom(N){const p=[];for(let i=0;i<N;i++)p.push([Math.random(),Math.random()]);return p;}
+  function genStrat(N){const s=Math.round(Math.sqrt(N));const p=[];for(let j=0;j<s;j++)for(let i=0;i<s;i++)p.push([(i+Math.random())/s,(j+Math.random())/s]);return p;}
+  function genHalton(N){const p=[];for(let i=0;i<N;i++)p.push([radInv(2,i),radInv(3,i)]);return p;}
+  function metric(pts,side){const c=new Int32Array(side*side);pts.forEach(([x,y])=>{const cx=Math.min(side-1,Math.floor(x*side)),cy=Math.min(side-1,Math.floor(y*side));c[cy*side+cx]++;});let empty=0,mx=0;for(const v of c){if(v===0)empty++;if(v>mx)mx=v;}return{emptyPct:empty/(side*side)*100,max:mx};}
+  function draw(id,pts,side,col){
+    const cv=document.getElementById(id); const ctx=cv.getContext('2d'); const S=cv.width;
+    ctx.clearRect(0,0,S,S); ctx.fillStyle='#fff'; ctx.fillRect(0,0,S,S);
+    ctx.strokeStyle='#e6e9ef'; ctx.lineWidth=1;
+    for(let g=1;g<side;g++){const p=Math.round(g*S/side)+0.5;ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,S);ctx.moveTo(0,p);ctx.lineTo(S,p);ctx.stroke();}
+    ctx.strokeStyle='#cdd2da'; ctx.strokeRect(0.5,0.5,S-1,S-1);
+    ctx.fillStyle=col;
+    pts.forEach(([x,y])=>{const px=Math.round(x*S),py=Math.round(y*S);ctx.fillRect(px-1,py-1,3,3);});
+  }
+  let curN=256, rnd, strat, halt;
+  function roll(){
+    const side=Math.round(Math.sqrt(curN));
+    rnd=genRandom(curN); strat=genStrat(curN); halt=genHalton(curN);
+    draw('sc-rand',rnd,side,'#dd6b20'); draw('sc-strat',strat,side,'#2f9e64'); draw('sc-halt',halt,side,'#7c3aed');
+    const set=(id,m)=>{document.getElementById(id).innerHTML='empty cells <b>'+m.emptyPct.toFixed(0)+'%</b> · fullest <b>'+m.max+'</b>';};
+    set('m-rand',metric(rnd,side)); set('m-strat',metric(strat,side)); set('m-halt',metric(halt,side));
+  }
+  document.querySelectorAll('.nbtn').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.nbtn').forEach(x=>x.classList.remove('sel')); b.classList.add('sel');
+    curN=+b.dataset.n; roll();
+  }));
+  document.getElementById('reroll').addEventListener('click',roll);
+  roll();
+  window.__f1=()=>{const side=Math.round(Math.sqrt(curN));return{N:curN,rand:metric(rnd,side),strat:metric(strat,side),halt:metric(halt,side)};};
+
+  // ---------- Figure 2: log-log convergence ----------
+  (function(){
+    const NS='http://www.w3.org/2000/svg';
+    const svg=document.getElementById('fig-conv'); if(!svg) return;
+    function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+    function txt(x,y,s,a){const e=el('text',Object.assign({x,y},a||{}));e.textContent=s;return e;}
+    const Ns=[16,64,256,1024,4096];
+    const rand=[0.2912,0.1494,0.07448,0.04015,0.01753];
+    const strat=[0.07803,0.01961,0.005145,0.001259,0.0003398];
+    const halt=[0.3044,0.09122,0.02607,0.007617,0.002144];
+    const x0=72,x1=560,top=44,bot=320;
+    const lN0=Math.log10(16), lN1=Math.log10(4096);
+    const px=N=>x0+(Math.log10(N)-lN0)/(lN1-lN0)*(x1-x0);
+    const py=e=>top+(-Math.log10(e))/4*(bot-top);   // err 1e0 at top, 1e-4 at bottom
+    // grid + y labels (1e0 .. 1e-4)
+    for(let k=0;k>=-4;k--){const y=py(Math.pow(10,k));
+      svg.appendChild(el('line',{x1:x0,y1:y,x2:x1,y2:y,stroke:'#eef0f4'}));
+      svg.appendChild(txt(x0-8,y+4,'1e'+k,{'font-size':11,fill:'var(--muted)','text-anchor':'end'}));
+    }
+    // x labels
+    Ns.forEach(N=>{svg.appendChild(el('line',{x1:px(N),y1:top,x2:px(N),y2:bot,stroke:'#f3f4f7'}));
+      svg.appendChild(txt(px(N),bot+18,''+N,{'font-size':11,fill:'var(--muted)','text-anchor':'middle'}));});
+    svg.appendChild(el('line',{x1:x0,y1:bot,x2:x1,y2:bot,stroke:'#9aa0ad'}));
+    svg.appendChild(el('line',{x1:x0,y1:top,x2:x0,y2:bot,stroke:'#9aa0ad'}));
+    svg.appendChild(txt((x0+x1)/2,bot+34,'sample count N',{'font-size':12.5,fill:'var(--muted)','text-anchor':'middle'}));
+    svg.appendChild(txt(x0-30,top-16,'error',{'font-size':12.5,fill:'var(--muted)'}));
+    // slope guides
+    function guide(e0,expo,col,label,ly){
+      let d=''; Ns.forEach((N,i)=>{const e=e0*Math.pow(16/N,expo);d+=(i?'L':'M')+px(N)+','+py(e)+' ';});
+      svg.appendChild(el('path',{d:d.trim(),fill:'none',stroke:col,'stroke-width':1.3,'stroke-dasharray':'5 4','stroke-opacity':0.7}));
+      svg.appendChild(txt(px(4096)+4,py(e0*Math.pow(16/4096,expo))+ly,label,{'font-size':11,fill:col}));
+    }
+    guide(0.2912,0.5,'#dd6b20','1/√N',4);
+    guide(0.07803,1.0,'#2f9e64','1/N',4);
+    // data series
+    function series(arr,col){
+      let d=''; arr.forEach((e,i)=>{d+=(i?'L':'M')+px(Ns[i])+','+py(e)+' ';});
+      svg.appendChild(el('path',{d:d.trim(),fill:'none',stroke:col,'stroke-width':2.4}));
+      arr.forEach((e,i)=>svg.appendChild(el('circle',{cx:px(Ns[i]),cy:py(e),r:3.5,fill:col})));
+    }
+    series(rand,'#dd6b20'); series(strat,'#2f9e64'); series(halt,'#7c3aed');
+    // legend
+    const lg=[['random','#dd6b20'],['stratified','#2f9e64'],['Halton','#7c3aed']];
+    lg.forEach((s,i)=>{const lx=110+i*150;svg.appendChild(el('line',{x1:lx,y1:24,x2:lx+22,y2:24,stroke:s[1],'stroke-width':3}));
+      svg.appendChild(txt(lx+28,28,s[0],{'font-size':12.5,fill:'var(--ink)'}));});
+  })();
+})();
+</script>
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>18 — Resampled Importance Sampling &amp; reservoirs (ReSTIR) — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --bar:#2b6cb0; --cdf:#7c3aed; --sun:#dd6b20; --u:#d9a500; --hit:#2f9e64; --uni:#8a93a2; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--hit)}
+  .callout.warn{border-left-color:var(--sun)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Resampled Importance Sampling &amp; reservoirs</h1>
+<p class="sub">18_resampled_importance_sampling.cpp — importance-sample a target you can only <em>evaluate</em>, never invert. Draw cheap candidates, weight them by the target, keep one. This is RIS (Talbot 2005), the engine under ReSTIR.</p>
+
+<p class="lead">Importance sampling (<a href="06_importance_sampling.html">example 06</a>) only works if you can <em>sample</em> the density — usually by inverting its CDF (<a href="14_tabulated_cdf_sampling.html">example 14</a>). But the ideal target in rendering, the full integrand $f=\text{BRDF}\cdot L\cdot V\cdot\cos\theta$, has no invertible CDF: you can compute its value at a point, but you cannot draw from it. <strong>Resampled Importance Sampling</strong> gets you samples approximately distributed by such a target using only cheap proposals plus evaluations — and its streaming form, the weighted <em>reservoir</em>, is the data structure modern real-time renderers (ReSTIR, Bitterli 2020) reuse across pixels and frames.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Draw $M$ cheap candidates from a source $q$ you can sample, give each a resampling weight $w_i=\hat p(X_i)/q(X_i)$ measuring how much the evaluable target $\hat p$ wants it, keep <em>one</em> survivor $Y$ with probability $w_j/\sum_k w_k$, and estimate $\hat I=\frac{f(Y)}{\hat p(Y)}\cdot\frac1M\sum_k w_k$ — unbiased for every $M$, equal to plain importance sampling at $M{=}1$, and converging to <em>ideal</em> importance sampling of $\hat p$ as $M$ grows, all without ever inverting $\hat p$.</p>
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--cdf)"></i> target $\hat p$ (evaluable only)</span>
+  <span><i class="dot" style="background:var(--bar)"></i> survivors $Y$</span>
+  <span><i class="dot" style="background:var(--u)"></i> candidates / weights</span>
+  <span><i class="dot" style="background:var(--hit)"></i> the kept survivor</span>
+  <span><i class="swatch" style="border-color:var(--sun)"></i> ideal-IS limit</span>
+</div>
+
+
+<h2 id="1">1. The problem: a target you can't invert<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Our toy integrand factors as $f(x)=\hat p(x)\,h(x)$ on $[0,1]$, with</p>
+$$\hat p(x)=e^{8x}\quad(\text{sharp — the part worth following}),\qquad h(x)=0.5+x\quad(\text{a smooth leftover}).$$
+<p>Here $\hat p$ happens to be invertible, but pretend it isn't (in rendering it never is) — we will only <em>evaluate</em> it. Sampling $x$ uniformly and averaging $f$ is hopeless: $e^{8x}$ swings from $1$ to $e^8\approx 2981$, so almost every uniform sample returns near-nothing and a rare one near $x=1$ returns a spike. That huge dynamic range is exactly what importance sampling by $\hat p$ would cancel — if only we could sample $\hat p$.</p>
+
+
+<h2 id="2">2. The RIS recipe<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>To estimate $I=\int f(x)\,dx$ given an evaluable target $\hat p\ge 0$ and a sampleable source $q$ (here uniform, $q=1$):</p>
+<ol>
+<li>Draw $M$ candidates $X_1,\dots,X_M\sim q$.</li>
+<li>Weight each by how much the target wants it: $w_i=\hat p(X_i)/q(X_i)$.</li>
+<li>Keep <strong>one</strong> survivor $Y=X_j$ chosen with probability $w_j/\sum_k w_k$.</li>
+<li>Estimate $\displaystyle \hat I=\frac{f(Y)}{\hat p(Y)}\cdot\Big(\frac1M\sum_{k=1}^M w_k\Big)$.</li>
+</ol>
+<p>The first factor $f(Y)/\hat p(Y)$ is the leftover the target didn't capture — here just $h(Y)$, since $f=\hat p\,h$. The second factor, the average weight, is an unbiased estimate of the target's normalizer $\int\hat p$. Their product is unbiased for <em>every</em> $M$. At $M{=}1$ it reduces to ordinary importance sampling with the source $q$; as $M\to\infty$ the survivor $Y$ becomes distributed ever closer to $\hat p/\!\int\hat p$, so the estimator's variance falls toward that of ideal importance sampling of $\hat p$.</p>
+
+
+<h2 id="3">3. The survivors become distributed by the target<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>That convergence is the whole idea, and you can watch it. Each RIS draw produces one survivor $Y$; histogram many of them. At $M{=}1$ the survivor is just the lone uniform candidate, so the histogram is flat. Raise $M$ and the survivors pile up under $\hat p$ — the resampling has reshaped a uniform source into (approximately) the target, using only evaluations of $\hat p$.</p>
+
+<figure>
+<svg id="fig-surv" viewBox="0 0 600 320" role="img" aria-label="Histogram of RIS survivors converging to the normalized target density as M grows."></svg>
+<div class="ctl">
+  candidates per draw M:
+  <button class="mbtn sel" data-m="1">1</button>
+  <button class="mbtn" data-m="2">2</button>
+  <button class="mbtn" data-m="4">4</button>
+  <button class="mbtn" data-m="8">8</button>
+  <button class="mbtn" data-m="16">16</button>
+  <button class="mbtn" data-m="64">64</button>
+  <span style="margin-left:auto"></span>
+  <button id="sv-add">+20,000 draws</button>
+  <button id="sv-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>survivor draws</span><b id="sv-n">0</b></div>
+  <div class="row"><span>mean survivor $x$</span><b id="sv-mean" style="color:var(--bar)">—</b></div>
+  <div class="row"><span>target mean $\mathbb{E}_{\hat p/Z}[x]$</span><b style="color:var(--cdf)">0.875</b></div>
+  <div class="row"><span>candidates per draw</span><b id="sv-m" style="color:var(--u)">1</b></div>
+</div>
+<figcaption>Figure 1. RIS survivors (blue) vs the normalized target $\hat p/Z$ (purple curve), $Z=\int_0^1 e^{8x}=372.5$. At $M{=}1$ the survivors are uniform (flat, far from the target); each increase in $M$ pulls their distribution toward $\hat p$, and the mean survivor $x$ climbs from $0.5$ toward the target's $0.875$ — resampling a target we only evaluate.</figcaption>
+</figure>
+
+
+<h2 id="4">4. Variance: marching toward ideal importance sampling<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Because the survivor approaches $\hat p$, the estimator's variance approaches the variance of <em>ideal</em> IS — sampling $\hat p$ directly (its only remaining noise is the smooth $h$). Here $\hat p$ is an exponential, so we <em>can</em> invert it to measure that ceiling. The C++ run, estimating $I=512.31$ with a million trials:</p>
+
+<table>
+<thead><tr><th>method</th><th class="num">mean → I</th><th class="num">variance</th><th class="num">× M=1</th></tr></thead>
+<tbody>
+<tr><td>RIS M=1 (= uniform MC)</td><td class="num">511.82</td><td class="num">8.86e+5</td><td class="num">1×</td></tr>
+<tr><td>RIS M=2</td><td class="num">511.93</td><td class="num">4.44e+5</td><td class="num">2.0×</td></tr>
+<tr><td>RIS M=4</td><td class="num">512.73</td><td class="num">2.24e+5</td><td class="num">4.0×</td></tr>
+<tr><td>RIS M=8</td><td class="num">512.10</td><td class="num">1.13e+5</td><td class="num">7.9×</td></tr>
+<tr><td>RIS M=16</td><td class="num">512.58</td><td class="num">5.75e+4</td><td class="num">15×</td></tr>
+<tr><td>RIS M=32</td><td class="num">511.91</td><td class="num">2.98e+4</td><td class="num">30×</td></tr>
+<tr><td>RIS M=64</td><td class="num">512.46</td><td class="num">1.60e+4</td><td class="num">55×</td></tr>
+<tr><td><span class="dot" style="background:var(--sun)"></span> ideal IS (sample $\hat p$)</td><td class="num">512.26</td><td class="num">2.13e+3</td><td class="num">416×</td></tr>
+</tbody>
+</table>
+
+<figure>
+<svg id="fig-var" viewBox="0 0 600 330" role="img" aria-label="Log-log plot of RIS variance vs M, decreasing as 1/M toward the ideal importance sampling floor."></svg>
+<figcaption>Figure 2. RIS variance vs $M$ (log–log). Each doubling of $M$ roughly halves the variance (slope $\approx-1$, i.e. variance $\propto 1/M$), heading toward the <span style="color:var(--sun)">ideal-IS floor</span> (dashed). RIS buys you most of the benefit of sampling an un-invertible target for the price of $M$ cheap evaluations per sample.</figcaption>
+</figure>
+
+
+<h2 id="5">5. The streaming form: a weighted reservoir<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Step 3 — "keep one survivor with probability $w_j/\sum_k w_k$" — looks like it needs all $M$ weights at once. It doesn't. <strong>Weighted reservoir sampling</strong> does the identical selection in one pass with $O(1)$ memory: hold a running survivor $y$ and weight-sum $W$; for each new candidate, add its weight and replace the survivor with probability $w/W$. After processing the stream, $y$ is the RIS survivor — the candidates were never stored.</p>
+
+<figure>
+<svg id="fig-res" viewBox="0 0 600 300" role="img" aria-label="A weighted reservoir processing candidates one at a time, replacing the survivor with probability w over running weight-sum."></svg>
+<div class="ctl">
+  <button id="rs-next">Next candidate</button>
+  <button id="rs-auto">Auto</button>
+  <button id="rs-reset">New stream</button>
+</div>
+<div class="panel">
+  <div class="row"><span>candidates seen M</span><b id="rs-m">0</b></div>
+  <div class="row"><span>last candidate $X$ · weight $\hat p(X)$</span><b id="rs-cand" style="color:var(--u)">—</b></div>
+  <div class="row"><span>replace probability $w/W$</span><b id="rs-prob" style="color:var(--sun)">—</b></div>
+  <div class="row"><span>survivor $y$ · weight-sum $W$</span><b id="rs-surv" style="color:var(--hit)">—</b></div>
+  <div class="row"><span>running estimate $h(y)\,W/M$</span><b id="rs-est" style="color:var(--bar)">—</b></div>
+</div>
+<figcaption>Figure 3. A weighted reservoir over $\hat p(x)=e^{8x}$. Each candidate arrives (gold), and the survivor (green) is replaced with probability $w/W$. Candidates near $x{=}1$ carry enormous weight and almost always win, so the survivor drifts toward the bright end — the same selection as Figure 1, but with one survivor and one weight-sum held in memory, not the whole list.</figcaption>
+</figure>
+
+<p>The streaming and array forms give the same distribution and the same variance (the C++ file confirms the reservoir at $M{=}16$ matches array-RIS at $M{=}16$: variance $5.74\text{e}4$ vs $5.75\text{e}4$). The $O(1)$ memory is what makes the next step possible.</p>
+
+
+<h2 id="6">6. ReSTIR: reuse the reservoirs<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>A reservoir is a tiny, self-contained summary of "the best light sample I found, and how much total weight I saw." Because it is $O(1)$, you can <strong>merge</strong> two reservoirs — feeding one's survivor into the other as a single weighted candidate is itself a RIS step. <a href="#">ReSTIR</a> (Bitterli et al. 2020) exploits this relentlessly: each pixel keeps a reservoir, then merges it with its <em>neighbors'</em> reservoirs (spatial reuse) and with its <em>own reservoir from the previous frame</em> (temporal reuse). After a couple of merge passes a pixel has effectively sampled hundreds of lights while tracing only a handful of rays itself.</p>
+
+<figure>
+<svg id="fig-restir" viewBox="0 0 600 230" role="img" aria-label="A pixel reservoir merging with neighbor reservoirs (spatial) and its previous-frame reservoir (temporal)."></svg>
+<figcaption>Figure 4. ReSTIR reuse. The center pixel's reservoir is merged with its spatial neighbors' reservoirs and its own temporal (previous-frame) reservoir; each merge is one more RIS step, so good light samples discovered anywhere nearby — or last frame — propagate almost for free. It is the modern descendant of importance sampling (<a href="06_importance_sampling.html">06</a>) and MIS (<a href="09_multiple_importance_sampling.html">09</a>).</figcaption>
+</figure>
+
+<p>A classic path tracer like <a href="https://github.com/INedelcu/PathTracingDemo">PathTracingDemo</a> samples each light or BRDF lobe independently per pixel and never reuses that work — exactly the $M{=}1$, no-reuse end of this spectrum. RIS and reservoir reuse are the upgrade that turns many-light direct lighting from prohibitive into real-time; they are an advanced topic, but every piece is something this series has already built.</p>
+
+
+<h2 id="7">7. The code<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The array RIS and the streaming reservoir are the same arithmetic; the reservoir just keeps the running survivor instead of an array.</p>
+
+<pre class="language-cpp"><code class="language-cpp">// --- array RIS for one estimate, M candidates (reservoir-style pick) ---
+double wsum = 0.0, chosen = 0.0;
+for (int i = 0; i &lt; M; ++i) {
+    double x = rng.NextFloat();              // X ~ q (uniform, q = 1)
+    double w = pHat(x);                      // w_i = p_hat(x)/q(x)
+    wsum += w;
+    if (rng.NextFloat() &lt; w / wsum) chosen = x;   // keep survivor w.p. w/wsum
+}
+double est = h(chosen) * (wsum / M);         // (f(Y)/p_hat(Y)) * mean(w)
+
+// --- the same thing as an O(1) streaming reservoir (what ReSTIR stores) ---
+struct Reservoir {
+    double y = 0.0, wsum = 0.0; int M = 0;
+    void update(double x, double w, Rng&amp; rng) {
+        wsum += w; ++M;
+        if (rng.NextFloat() &lt; w / wsum) y = x;     // replace survivor w.p. w/wsum
+    }
+    double estimate() const { return h(y) * (wsum / M); }
+};</code></pre>
+
+<div class="callout">
+<strong>Takeaway.</strong> RIS importance-samples a target you can only evaluate: draw $M$ cheap candidates, weight them by the target, keep one. It is unbiased at every $M$ and converges to ideal importance sampling as $M$ grows. Its streaming reservoir form needs $O(1)$ memory, so reservoirs can be merged and reused across pixels and frames — that reuse, ReSTIR, is the state of the art for real-time many-light rendering, and it is built entirely from the importance-sampling ideas in this series.
+</div>
+
+<p class="small" style="margin-top:34px">Part of the <a href="index.html">Monte Carlo &amp; path tracing explainer series</a>. Previous: <a href="17_adaptive_sampling.html">17 — Adaptive sampling</a>. Builds on: <a href="06_importance_sampling.html">06 — Importance sampling</a>, <a href="09_multiple_importance_sampling.html">09 — MIS</a>.</p>
+
+</div>
+
+<script>
+(function(){
+  const NS='http://www.w3.org/2000/svg';
+  function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+  function txt(x,y,s,a){const e=el('text',Object.assign({x,y},a||{}));e.textContent=s;return e;}
+  const A=8, Z=(Math.exp(A)-1)/A;
+  const pHat=x=>Math.exp(A*x), h=x=>0.5+x;
+
+  // ---------- Figure 1: survivor histogram ----------
+  (function(){
+    const svg=document.getElementById('fig-surv'); if(!svg) return;
+    const x0=58,x1=560,top=30,bot=270, NB=40, yMax=8.6;
+    const px=x=>x0+x*(x1-x0), py=d=>bot-(d/yMax)*(bot-top);
+    const gStatic=el('g'); svg.appendChild(gStatic);
+    // axes
+    gStatic.appendChild(el('line',{x1:x0,y1:bot,x2:x1,y2:bot,stroke:'#9aa0ad'}));
+    gStatic.appendChild(el('line',{x1:x0,y1:top,x2:x0,y2:bot,stroke:'#9aa0ad'}));
+    [0,2,4,6,8].forEach(d=>{gStatic.appendChild(el('line',{x1:x0,y1:py(d),x2:x1,y2:py(d),stroke:'#eef0f4'}));
+      gStatic.appendChild(txt(x0-8,py(d)+4,''+d,{'font-size':11,fill:'var(--muted)','text-anchor':'end'}));});
+    [0,0.25,0.5,0.75,1].forEach(x=>gStatic.appendChild(txt(px(x),bot+18,x.toFixed(2),{'font-size':11,fill:'var(--muted)','text-anchor':'middle'})));
+    gStatic.appendChild(txt((x0+x1)/2,bot+34,'x',{'font-size':12.5,fill:'var(--muted)','text-anchor':'middle'}));
+    gStatic.appendChild(txt(x0-30,top-12,'density',{'font-size':12,fill:'var(--muted)'}));
+    // target curve p_hat/Z
+    let d='';for(let i=0;i<=120;i++){const x=i/120;d+=(i?'L':'M')+px(x).toFixed(1)+','+py(pHat(x)/Z).toFixed(1)+' ';}
+    gStatic.appendChild(el('path',{d:d.trim(),fill:'none',stroke:'var(--cdf)','stroke-width':2.4}));
+    gStatic.appendChild(txt(px(0.5),py(pHat(0.78)/Z),'target  p̂/Z',{'font-size':12,fill:'var(--cdf)','text-anchor':'end'}));
+    const gBars=el('g'); svg.appendChild(gBars);
+    let M=1, hist=new Array(NB).fill(0), n=0, sumX=0;
+    function risDraw(M){let wsum=0,chosen=0;for(let i=0;i<M;i++){const x=Math.random();const w=pHat(x);wsum+=w;if(Math.random()<w/wsum)chosen=x;}return chosen;}
+    function redraw(){
+      while(gBars.firstChild)gBars.removeChild(gBars.firstChild);
+      if(n>0){const bw=(x1-x0)/NB;
+        for(let b=0;b<NB;b++){const dens=hist[b]/n*NB; if(dens<=0)continue;
+          gBars.appendChild(el('rect',{x:px(b/NB)+0.5,y:py(dens),width:bw-1,height:bot-py(dens),fill:'var(--bar)','fill-opacity':0.55}));}}
+      document.getElementById('sv-n').textContent=n.toLocaleString();
+      document.getElementById('sv-mean').textContent=n?(sumX/n).toFixed(3):'—';
+      document.getElementById('sv-m').textContent=M;
+    }
+    function add(k){for(let i=0;i<k;i++){const y=risDraw(M);hist[Math.min(NB-1,Math.floor(y*NB))]++;sumX+=y;n++;}redraw();}
+    document.querySelectorAll('.mbtn').forEach(b=>b.addEventListener('click',()=>{
+      document.querySelectorAll('.mbtn').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+      M=+b.dataset.m; hist=new Array(NB).fill(0); n=0; sumX=0; add(20000);
+    }));
+    document.getElementById('sv-add').addEventListener('click',()=>add(20000));
+    document.getElementById('sv-reset').addEventListener('click',()=>{hist=new Array(NB).fill(0);n=0;sumX=0;redraw();});
+    add(20000);
+  })();
+
+  // ---------- Figure 2: variance vs M ----------
+  (function(){
+    const svg=document.getElementById('fig-var'); if(!svg) return;
+    const Ms=[1,2,4,8,16,32,64], vars=[8.8592e5,4.4430e5,2.2398e5,1.1269e5,5.7472e4,2.9777e4,1.5970e4], ideal=2.1296e3;
+    const x0=70,x1=560,top=40,bot=270;
+    const lx0=0, lx1=Math.log2(64);
+    const px=M=>x0+(Math.log2(M)-lx0)/(lx1-lx0)*(x1-x0);
+    const py=v=>top+(6-Math.log10(v))/(6-3)*(bot-top);   // 1e6 top .. 1e3 bottom
+    for(let k=6;k>=3;k--){const y=py(Math.pow(10,k));svg.appendChild(el('line',{x1:x0,y1:y,x2:x1,y2:y,stroke:'#eef0f4'}));
+      svg.appendChild(txt(x0-8,y+4,'1e'+k,{'font-size':11,fill:'var(--muted)','text-anchor':'end'}));}
+    Ms.forEach(M=>{svg.appendChild(txt(px(M),bot+18,''+M,{'font-size':11,fill:'var(--muted)','text-anchor':'middle'}));});
+    svg.appendChild(el('line',{x1:x0,y1:bot,x2:x1,y2:bot,stroke:'#9aa0ad'}));
+    svg.appendChild(el('line',{x1:x0,y1:top,x2:x0,y2:bot,stroke:'#9aa0ad'}));
+    svg.appendChild(txt((x0+x1)/2,bot+34,'candidates per sample  M',{'font-size':12.5,fill:'var(--muted)','text-anchor':'middle'}));
+    svg.appendChild(txt(x0-34,top-14,'variance',{'font-size':12,fill:'var(--muted)'}));
+    // ideal floor
+    svg.appendChild(el('line',{x1:x0,y1:py(ideal),x2:x1,y2:py(ideal),stroke:'var(--sun)','stroke-width':1.6,'stroke-dasharray':'6 4'}));
+    svg.appendChild(txt(x1,py(ideal)-6,'ideal-IS floor 2.13e3',{'font-size':11.5,fill:'var(--sun)','text-anchor':'end'}));
+    // RIS line
+    let d='';Ms.forEach((M,i)=>{d+=(i?'L':'M')+px(M)+','+py(vars[i])+' ';});
+    svg.appendChild(el('path',{d:d.trim(),fill:'none',stroke:'var(--bar)','stroke-width':2.4}));
+    Ms.forEach((M,i)=>svg.appendChild(el('circle',{cx:px(M),cy:py(vars[i]),r:3.6,fill:'var(--bar)'})));
+    svg.appendChild(txt(px(8),py(1.1269e5)-12,'variance ∝ 1/M',{'font-size':12,fill:'var(--bar)','text-anchor':'middle'}));
+  })();
+
+  // ---------- Figure 3: weighted reservoir ----------
+  (function(){
+    const svg=document.getElementById('fig-res'); if(!svg) return;
+    const x0=50,x1=560,axisY=200,curveTop=50;
+    const px=x=>x0+x*(x1-x0);
+    const gStatic=el('g'); svg.appendChild(gStatic);
+    // weight landscape: log p_hat = 8x -> straight ramp; draw as a filled guide
+    let d='M'+px(0)+','+axisY+' ';
+    for(let i=0;i<=60;i++){const x=i/60;const t=(A*x)/A; d+='L'+px(x).toFixed(1)+','+(axisY-(t)*(axisY-curveTop)).toFixed(1)+' ';}
+    d+='L'+px(1)+','+axisY+' Z';
+    gStatic.appendChild(el('path',{d:d,fill:'var(--cdf)','fill-opacity':0.08,stroke:'var(--cdf)','stroke-opacity':0.4,'stroke-width':1}));
+    gStatic.appendChild(el('line',{x1:x0,y1:axisY,x2:x1,y2:axisY,stroke:'#9aa0ad'}));
+    [0,0.25,0.5,0.75,1].forEach(x=>gStatic.appendChild(txt(px(x),axisY+18,x.toFixed(2),{'font-size':11,fill:'var(--muted)','text-anchor':'middle'})));
+    gStatic.appendChild(txt(px(0.02),curveTop-2,'weight  p̂(x)=e^{8x}  (higher → more likely to be kept)',{'font-size':11.5,fill:'var(--cdf)'}));
+    gStatic.appendChild(txt(px(0.5),axisY+34,'candidate position x',{'font-size':12,fill:'var(--muted)','text-anchor':'middle'}));
+    const gDyn=el('g'); svg.appendChild(gDyn);
+    let y=0, W=0, M=0, timer=null;
+    function show(cand){
+      while(gDyn.firstChild)gDyn.removeChild(gDyn.firstChild);
+      // survivor flag
+      if(M>0){gDyn.appendChild(el('line',{x1:px(y),y1:axisY,x2:px(y),y2:curveTop+6,stroke:'var(--hit)','stroke-width':2}));
+        gDyn.appendChild(el('circle',{cx:px(y),cy:curveTop+6,r:5,fill:'var(--hit)'}));
+        gDyn.appendChild(txt(px(y),curveTop-2,'survivor',{'font-size':10.5,fill:'var(--hit)','text-anchor':'middle'}));}
+      // last candidate
+      if(cand){gDyn.appendChild(el('circle',{cx:px(cand.x),cy:axisY,r:5,fill:'var(--u)'}));
+        gDyn.appendChild(el('line',{x1:px(cand.x),y1:axisY,x2:px(cand.x),y2:axisY-(A*cand.x/A)*(axisY-curveTop),stroke:'var(--u)','stroke-width':1.6,'stroke-dasharray':'3 2'}));
+        gDyn.appendChild(txt(px(cand.x),axisY-(A*cand.x/A)*(axisY-curveTop)-6,cand.swap?'kept!':'candidate',{'font-size':10.5,fill:cand.swap?'var(--hit)':'var(--u)','text-anchor':'middle'}));}
+    }
+    function step(){
+      const x=Math.random(), w=pHat(x); W+=w; M++; const prob=w/W; const swap=Math.random()<prob; if(swap)y=x;
+      show({x,swap});
+      document.getElementById('rs-m').textContent=M;
+      document.getElementById('rs-cand').textContent=x.toFixed(3)+'  ·  '+w.toFixed(1);
+      document.getElementById('rs-prob').textContent=(prob*100).toFixed(1)+'%';
+      document.getElementById('rs-surv').textContent=y.toFixed(3)+'  ·  '+W.toFixed(1);
+      document.getElementById('rs-est').textContent=(h(y)*(W/M)).toFixed(2);
+    }
+    function reset(){y=0;W=0;M=0;if(timer){clearInterval(timer);timer=null;document.getElementById('rs-auto').classList.remove('sel');}
+      while(gDyn.firstChild)gDyn.removeChild(gDyn.firstChild);
+      ['rs-cand','rs-prob','rs-surv','rs-est'].forEach(id=>document.getElementById(id).textContent='—');
+      document.getElementById('rs-m').textContent='0';}
+    document.getElementById('rs-next').addEventListener('click',step);
+    document.getElementById('rs-reset').addEventListener('click',reset);
+    document.getElementById('rs-auto').addEventListener('click',function(){
+      if(timer){clearInterval(timer);timer=null;this.classList.remove('sel');}
+      else{this.classList.add('sel');timer=setInterval(step,650);}
+    });
+    reset();
+  })();
+
+  // ---------- Figure 4: ReSTIR reuse diagram ----------
+  (function(){
+    const svg=document.getElementById('fig-restir'); if(!svg) return;
+    // pixel grid
+    const gx=40, gy=40, cs=34;
+    for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+      const center=(r===1&&c===1);
+      svg.appendChild(el('rect',{x:gx+c*cs,y:gy+r*cs,width:cs,height:cs,fill:center?'var(--hit)':'#fff','fill-opacity':center?0.18:1,stroke:center?'var(--hit)':'#cbd0d9','stroke-width':center?2:1}));
+    }
+    const cx=gx+1.5*cs, cy=gy+1.5*cs;
+    // spatial arrows from neighbors to center
+    [[0,1],[1,0],[1,2],[2,1],[0,0],[2,2]].forEach(([r,c])=>{
+      const nx=gx+c*cs+cs/2, ny=gy+r*cs+cs/2;
+      svg.appendChild(el('line',{x1:nx,y1:ny,x2:cx,y2:cy,stroke:'var(--bar)','stroke-width':1.4,'stroke-opacity':0.55,'marker-end':'url(#ar)'}));
+    });
+    svg.appendChild(txt(gx+1.5*cs,gy+3*cs+22,'spatial reuse: neighbor reservoirs',{'font-size':12,fill:'var(--bar)','text-anchor':'middle'}));
+    // temporal reservoir
+    const tx=360, ty=80;
+    svg.appendChild(el('rect',{x:tx,y:ty,width:cs,height:cs,fill:'#fff',stroke:'var(--sun)','stroke-width':1.6,'stroke-dasharray':'4 3'}));
+    svg.appendChild(txt(tx+cs/2,ty-8,'previous frame',{'font-size':11.5,fill:'var(--sun)','text-anchor':'middle'}));
+    svg.appendChild(el('line',{x1:tx,y1:ty+cs/2,x2:cx+cs/2,y2:cy,stroke:'var(--sun)','stroke-width':1.6,'marker-end':'url(#ar2)'}));
+    svg.appendChild(txt(tx+cs/2,ty+cs+18,'temporal reuse',{'font-size':12,fill:'var(--sun)','text-anchor':'middle'}));
+    // merged result
+    svg.appendChild(txt(cx,cy+4,'RIS',{'font-size':12,fill:'var(--hit)','text-anchor':'middle','font-weight':700}));
+    svg.appendChild(txt(300,205,'each merge of reservoirs is one more RIS step → hundreds of effective samples per pixel',{'font-size':12,fill:'var(--muted)','text-anchor':'middle'}));
+    const defs=el('defs');
+    [['ar','var(--bar)'],['ar2','var(--sun)']].forEach(([id,col])=>{
+      const m=el('marker',{id:id,markerWidth:7,markerHeight:7,refX:6,refY:3,orient:'auto'});
+      m.appendChild(el('path',{d:'M0,0 L6,3 L0,6 Z',fill:col})); defs.appendChild(m);});
+    svg.insertBefore(defs,svg.firstChild);
+  })();
+})();
+</script>
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>

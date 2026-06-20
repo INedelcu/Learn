@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14 — Sampling tabulated distributions (build &amp; invert a CDF) — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --bar:#2b6cb0; --cdf:#7c3aed; --sun:#dd6b20; --u:#d9a500; --hit:#2f9e64; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--hit)}
+  .callout.warn{border-left-color:var(--sun)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .big{font-size:20px; font-variant-numeric:tabular-nums; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Sampling tabulated distributions: build &amp; invert a CDF</h1>
+<p class="sub">14_tabulated_cdf_sampling.cpp — the distributions a renderer most wants to sample have no formula at all. They arrive as a table of numbers. Here is the standard machinery: normalize, prefix-sum into a CDF, and invert it with a binary search.</p>
+
+<p class="lead"><a href="05_sampling_distributions.html">Example 05</a> inverted a CDF that had a clean closed-form inverse — $\sqrt U$, $-\ln(1-U)/\lambda$. But the most important distributions in rendering have <em>no</em> formula: the luminance of an HDR environment map, a measured BRDF, the power of each light in the scene. They are just <strong>tables of numbers</strong>. This file shows how to sample any such table proportionally to its weights, in $O(\log N)$ per sample with a single, branch-coherent binary search — the exact pattern behind environment-map importance sampling and light selection.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Treat the table as a piecewise-constant pdf, normalize it, and prefix-sum it into a cumulative table $F$ with $N{+}1$ entries ($F_0=0,\ F_N=1$); to draw a sample, take $u\sim U[0,1)$ and <em>binary-search</em> for the bin with $F_i\le u&lt;F_{i+1}$ — exactly one search per sample, so every GPU lane does the same work — then either interpolate inside the bin (continuous) or just return the index (discrete "which light?").
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--bar)"></i> pdf / empirical frequency</span>
+  <span><i class="swatch" style="border-color:var(--cdf)"></i> CDF $F$ (prefix sum)</span>
+  <span><i class="dot" style="background:var(--u)"></i> uniform input $u$</span>
+  <span><i class="dot" style="background:var(--hit)"></i> the sampled bin</span>
+  <span><i class="dot" style="background:var(--sun)"></i> the "sun" (heavy bins)</span>
+</div>
+
+
+<h2 id="1">1. The problem: distributions that are only a table<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Inversion and rejection (<a href="05_sampling_distributions.html">example 05</a>) both assumed you could write the density down. Real rendering data can't be. An environment map is a grid of measured radiances; the "density" you want to sample is its per-texel luminance — a few million numbers with no analytic form. Same for the list of light powers in a scene, or a tabulated BRDF. The question is always the same: <em>given a table of non-negative weights, draw an index (or a position) with probability proportional to the weights.</em></p>
+
+<p>Our running test case mirrors the C++ file: a 1-D <strong>"sky row"</strong> of $W=32$ bins, all dim except three in the middle (the <span style="color:var(--sun)">sun</span>) that are $100\times$ brighter. A correct sampler must send almost all of its samples into those three bins.</p>
+
+<figure>
+<svg id="fig-sky" viewBox="0 0 600 250" role="img" aria-label="A sky row colored by luminance with a bright sun, and the matching table of 32 pdf bars."></svg>
+<figcaption>Figure 1. The sky row as luminance (top) and as the normalized table it becomes (bottom). With weights $1$ for the background and $100$ for the three sun bins, the normalizer is $29\cdot1+3\cdot100=329$, so each dim bin has probability $1/329\approx0.00304$ and each sun bin $100/329\approx0.304$ — the three sun bins together hold <strong>≈91%</strong> of the probability while covering under 10% of the row.</figcaption>
+</figure>
+
+
+<h2 id="2">2. The recipe: normalize, prefix-sum, invert<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Treat the table as a <strong>piecewise-constant pdf</strong> over $N$ unit-width bins. Three steps:</p>
+
+<p><strong>(1) Normalize</strong> so the masses sum to one:</p>
+$$p_i=\frac{w_i}{\sum_{j}w_j},\qquad \sum_{i=0}^{N-1}p_i=1.$$
+
+<p><strong>(2) Build the CDF as a prefix sum.</strong> The cumulative table has $N{+}1$ entries so it holds <em>both edges</em> of every bin:</p>
+$$F_0=0,\qquad F_{i+1}=F_i+p_i,\qquad F_N=1.$$
+
+<p><strong>(3) Invert.</strong> Draw $u\sim U[0,1)$ and find the bin whose cumulative interval contains it:</p>
+$$\text{find }i\ \text{such that}\quad F_i\le u&lt;F_{i+1}.$$
+
+<p>That is the whole idea: $u$ falls into bin $i$ with probability exactly $F_{i+1}-F_i=p_i$, because $u$ is uniform and the interval $[F_i,F_{i+1})$ has length $p_i$. Wide cumulative steps (heavy bins) catch $u$ often; thin steps rarely. The next figure makes the inversion visible.</p>
+
+
+<h2 id="3">3. Inverting the CDF, made visual<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Plot the CDF $F$ against the domain. Because the pdf is constant within each bin, $F$ rises in a straight ramp across each bin, with <em>slope equal to that bin's probability</em>. To sample, enter at a height $u$ on the left axis, go right until you hit the ramp, and drop down: that landing point is your sample. Steep segments (high $p_i$) span a tall slice of the $u$-axis, so they swallow most draws — that <em>is</em> importance sampling (<a href="06_importance_sampling.html">example 06</a>) falling out of the geometry.</p>
+
+<figure>
+<svg id="fig-inv" viewBox="0 0 600 360" role="img" aria-label="The CDF drawn as a piecewise-linear ramp; a horizontal line at height u maps to a sampled position on the x-axis."></svg>
+<div class="ctl">
+  uniform input u = <b id="iv-uval" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">0.50</b>
+  <input id="iv-u" type="range" min="0" max="1000" value="500" step="1">
+</div>
+<div class="panel">
+  <div class="row"><span>lands in bin $i$</span><b id="iv-bin" style="color:var(--hit)">—</b></div>
+  <div class="row"><span>bin probability $p_i$</span><b id="iv-pi" style="color:var(--bar)">—</b></div>
+  <div class="row"><span>cumulative interval $[F_i,F_{i+1})$</span><b id="iv-int" style="color:var(--cdf)">—</b></div>
+  <div class="row"><span>continuous sample $x=i+t$</span><b id="iv-x" style="color:var(--hit)">—</b></div>
+</div>
+<figcaption>Figure 2. A tiny 6-bin example, probabilities $[.05,.15,.40,.25,.10,.05]$, for legibility. Drag $u$ on the gold axis: the <span style="color:var(--cdf)">CDF ramp</span> turns it into a <span style="color:var(--hit)">sample</span>. The third bin ($p=0.40$, the steepest segment) owns the $u$-range $[0.20,0.60)$ — so 40% of all draws land there, with no test or rejection.</figcaption>
+</figure>
+
+
+<h2 id="4">4. Why binary search: one branch-coherent step per sample<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>For a big table you don't scan linearly — you <strong>binary-search</strong> the cumulative array for the bin containing $u$. Keep a bracket $[\text{lo},\text{hi}]$ over the edges, look at the middle edge, and discard the half that can't contain $u$:</p>
+
+<figure>
+<svg id="fig-bsearch" viewBox="0 0 600 200" role="img" aria-label="Binary search narrowing a bracket over the CDF edge array to locate the bin containing u."></svg>
+<figcaption>Figure 3. Locating $u=0.50$ in the 6-bin CDF edges $[0,.05,.20,.60,.85,.95,1]$. Each step halves the bracket: compare $u$ to the middle edge, keep the side that still contains it. Six bins resolve in $\lceil\log_2 6\rceil=3$ comparisons; a million texels in only 20.</figcaption>
+</figure>
+
+<p>The cost is $O(\log N)$, but the property that matters on a GPU is subtler: a binary search does <strong>exactly the same number of steps for every $u$</strong>. Contrast rejection sampling (<a href="05_sampling_distributions.html">example 05</a>), whose try-count is random and differs per sample — on a SIMD warp the lucky lanes must idle until the unlucky one finishes, so the whole warp runs at worst-case speed. The fixed, data-independent work of a binary search keeps all 32 lanes in lockstep. That predictability is why this, not rejection, is the workhorse for tables.</p>
+
+
+<h2 id="5">5. Continuous vs. discrete sampling<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Once you know the bin, there are two things you might want:</p>
+
+<p><strong>Continuous</strong> — a real-valued position, e.g. a sub-texel coordinate on the environment map. Interpolate <em>within</em> the bin using how far $u$ reached across its cumulative step:</p>
+$$t=\frac{u-F_i}{F_{i+1}-F_i},\qquad x=i+t\ \in[i,i+1).$$
+<p>Since each bin is one unit wide, the density at the sample is just the bin's mass, $p(x)=F_{i+1}-F_i=p_i$ — the value MIS (<a href="09_multiple_importance_sampling.html">example 09</a>) needs as the pdf of this strategy.</p>
+
+<p><strong>Discrete</strong> — just the index $i$. "Which of these $N$ lights do I shade?" is answered by the same prefix-sum CDF and the same binary search; you return the bin number and stop. No interpolation, no density-within-a-bin — the probability of picking light $i$ is exactly $p_i$.</p>
+
+
+<h2 id="6">6. Verifying it: the sky row, sampled<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Draw samples through the inverse CDF and histogram where they land. The empirical frequencies must converge to the pdf — most of them piling into the three sun bins. The C++ file draws a million samples; do the same here in batches and watch the bars settle.</p>
+
+<figure>
+<svg id="fig-hist" viewBox="0 0 600 320" role="img" aria-label="Histogram of inverse-CDF samples over 32 bins converging to the target pdf, dominated by the three sun bins."></svg>
+<div class="ctl">
+  <button id="hs-10k">+10,000 samples</button>
+  <button id="hs-100k">+100,000</button>
+  <button id="hs-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>samples drawn</span><b id="hs-n">0</b></div>
+  <div class="row"><span>fraction in the 3 sun bins</span><b id="hs-sun" style="color:var(--sun)">—</b></div>
+  <div class="row"><span>target sun fraction $300/329$</span><b>0.9119</b></div>
+  <div class="row"><span>max |empirical − pdf|</span><b id="hs-err" style="color:var(--bar)">—</b></div>
+</div>
+<figcaption>Figure 4. Empirical frequencies (filled bars; <span style="color:var(--sun)">sun</span> bins orange) over the target pdf (outlined). With a million samples the C++ run reports the sun bins at $0.30466,\,0.30421,\,0.30338$ against the exact $0.30395$, and each dim bin near its $0.00304$ — the sampler sends mass exactly where the table says it should.</figcaption>
+</figure>
+
+
+<h2 id="7">7. The discrete case: picking a light by power<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The "which light?" problem is the discrete sampler verbatim. Three lights with powers $90:1:9$ become probabilities $0.90,0.01,0.09$; their CDF cuts $[0,1)$ into three intervals, and a uniform $u$ picks whichever it falls in. The tiny middle interval (width $0.01$) is hit about once in a hundred — proportional to its power, no more.</p>
+
+<figure>
+<svg id="fig-disc" viewBox="0 0 600 170" role="img" aria-label="The unit interval split into three CDF segments of width 0.90, 0.01, 0.09; uniform draws fall into each proportionally."></svg>
+<div class="ctl">
+  <button id="dc-1">+1 draw</button>
+  <button id="dc-1k">+1,000</button>
+  <button id="dc-reset">Reset</button>
+</div>
+<table>
+<thead><tr><th>light</th><th class="num">power</th><th class="num">expected $p_i$</th><th class="num">empirical</th><th class="num">hits</th></tr></thead>
+<tbody>
+<tr><td><span class="dot" style="background:var(--bar)"></span> 0</td><td class="num">90</td><td class="num">0.9000</td><td class="num" id="dc-e0">—</td><td class="num" id="dc-h0">0</td></tr>
+<tr><td><span class="dot" style="background:var(--sun)"></span> 1</td><td class="num">1</td><td class="num">0.0100</td><td class="num" id="dc-e1">—</td><td class="num" id="dc-h1">0</td></tr>
+<tr><td><span class="dot" style="background:var(--hit)"></span> 2</td><td class="num">9</td><td class="num">0.0900</td><td class="num" id="dc-e2">—</td><td class="num" id="dc-h2">0</td></tr>
+</tbody>
+</table>
+<figcaption>Figure 5. Picking a light. The C++ run's million draws land at $0.9002,\,0.0098,\,0.0900$ — the same prefix-sum CDF and binary search, returning just the index. This is how a renderer chooses which light to sample before estimating its contribution.</figcaption>
+</figure>
+
+
+<h2 id="8">8. Where this lives in the renderer<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>This single routine is everywhere a renderer faces measured data it can only tabulate:</p>
+<ul>
+<li><strong>Environment-map importance sampling.</strong> Build a pdf from per-texel luminance and sample directions toward the bright parts of the sky instead of firing rays uniformly — the 1-D version here, extended to 2-D in <a href="15_env_map_2d_sampling.html">example 15</a> (sample a row by its total power, then a texel within that row).</li>
+<li><strong>Light selection.</strong> The discrete pick of §7 chooses which light to sample in a many-light scene, weighted by power (or a better importance estimate).</li>
+<li><strong>Any measured BRDF or phase function</strong> supplied as a table rather than a formula.</li>
+</ul>
+<p>The companion <a href="https://github.com/INedelcu/PathTracingDemo">PathTracingDemo</a> renderer samples an environment cubemap for its lighting; turning that map's luminance into an importance distribution is exactly the construction on this page. Note the returned density $p_i$ is what lets these strategies be combined with others through MIS (<a href="09_multiple_importance_sampling.html">example 09</a>).</p>
+
+
+<h2 id="9">9. The code<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The four routines are tiny. <code>BuildCdf</code> is the prefix sum (pinning the last entry to exactly $1$ against float drift); <code>FindBin</code> is the branch-coherent binary search; the two samplers differ only in what they return.</p>
+
+<pre class="language-cpp"><code class="language-cpp">// Build a CDF (prefix sum) from a pdf table. Result has pdf.size()+1 entries.
+std::vector&lt;float&gt; BuildCdf(const std::vector&lt;float&gt;&amp; pdf) {
+    std::vector&lt;float&gt; cdf(pdf.size() + 1, 0.0f);
+    for (size_t i = 0; i &lt; pdf.size(); ++i) cdf[i + 1] = cdf[i] + pdf[i];
+    cdf.back() = 1.0f;                     // pin the top against float drift
+    return cdf;
+}
+
+// Find the bin i with cdf[i] &lt;= u &lt; cdf[i+1] by binary search.
+int FindBin(const std::vector&lt;float&gt;&amp; cdf, float u) {
+    int lo = 0, hi = (int)cdf.size() - 1;          // searching edges [0, N]
+    while (hi - lo &gt; 1) {
+        int mid = (lo + hi) &gt;&gt; 1;
+        if (cdf[mid] &lt;= u) lo = mid; else hi = mid;
+    }
+    return lo;                                       // in [0, N-1]
+}
+
+// Continuous: pick a bin, then interpolate within it. Also returns the density.
+float SampleContinuous(const std::vector&lt;float&gt;&amp; cdf, float u, float&amp; outPdf) {
+    int i = FindBin(cdf, u);
+    float f0 = cdf[i], f1 = cdf[i + 1];
+    float t = (f1 &gt; f0) ? (u - f0) / (f1 - f0) : 0.0f;
+    outPdf = f1 - f0;                                // bin width is 1 -&gt; density = mass
+    return i + t;
+}
+
+// Discrete: just the bin index, distributed proportionally to pdf[i].
+int SampleDiscrete(const std::vector&lt;float&gt;&amp; cdf, float u) {
+    return FindBin(cdf, u);
+}</code></pre>
+
+<div class="callout">
+<strong>Takeaway.</strong> Any non-negative table becomes a sampler in three lines of setup (normalize, prefix-sum) and one $O(\log N)$ binary search per draw. It is exact (no rejection waste), unbiased, returns its own density for MIS, and does identical work on every lane — the reason it underlies environment-map and light sampling in production path tracers. <a href="15_env_map_2d_sampling.html">Example 15</a> lifts it to the full 2-D environment map.
+</div>
+
+<p class="small" style="margin-top:34px">Part of the <a href="index.html">Monte Carlo &amp; path tracing explainer series</a>. Previous: <a href="13_image_convergence_ppm.html">13 — Seeing the noise</a>. Next: <a href="15_env_map_2d_sampling.html">15 — 2-D environment-map sampling</a>.</p>
+
+</div>
+
+<script>
+(function(){
+  const NS='http://www.w3.org/2000/svg';
+  function el(tag,a){const e=document.createElementNS(NS,tag);if(a)for(const k in a)e.setAttribute(k,a[k]);return e;}
+  function txt(x,y,s,a){const t=el('text',Object.assign({x:x,y:y},a||{}));t.textContent=s;return t;}
+  function clear(svg){while(svg.firstChild)svg.removeChild(svg.firstChild);}
+
+  // --- shared sky-row distribution (matches the C++ file) ---
+  const W=32, SUN=[19,20,21];
+  const wts=[]; for(let i=0;i<W;i++) wts.push(SUN.indexOf(i)>=0?100:1);
+  const wsum=wts.reduce((a,b)=>a+b,0);          // 329
+  const pdf=wts.map(w=>w/wsum);
+  const cdf=[0]; for(let i=0;i<W;i++) cdf.push(cdf[i]+pdf[i]); cdf[W]=1;
+  function findBin(c,u){let lo=0,hi=c.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(c[m]<=u)lo=m;else hi=m;}return lo;}
+
+  // ===== Figure 1: sky row + pdf table =====
+  (function(){
+    const svg=document.getElementById('fig-sky'); if(!svg) return;
+    const x0=40,x1=560,wpx=x1-x0,bw=wpx/W;
+    // luminance strip
+    const sy=24,sh=40;
+    for(let i=0;i<W;i++){
+      const sun=SUN.indexOf(i)>=0;
+      const col=sun?'#ffd24d':'#39435a';
+      svg.appendChild(el('rect',{x:x0+i*bw,y:sy,width:bw-0.6,height:sh,fill:col}));
+    }
+    svg.appendChild(el('rect',{x:x0,y:sy,width:wpx,height:sh,fill:'none',stroke:'#cbd0d9'}));
+    svg.appendChild(txt(x0,18,'panoramic sky row — HDR luminance per texel',{'font-size':12.5,fill:'var(--muted)'}));
+    // sun bracket
+    const bxL=x0+19*bw, bxR=x0+22*bw;
+    svg.appendChild(el('path',{d:'M'+bxL+','+(sy+sh+6)+' L'+bxL+','+(sy+sh+12)+' L'+bxR+','+(sy+sh+12)+' L'+bxR+','+(sy+sh+6),fill:'none',stroke:'var(--sun)','stroke-width':1.4}));
+    svg.appendChild(txt((bxL+bxR)/2,sy+sh+26,'sun: 3 bins, 100× brighter',{'font-size':12,fill:'var(--sun)','text-anchor':'middle'}));
+    // pdf bars
+    const baseY=222, maxH=110, maxP=Math.max.apply(null,pdf);
+    for(let i=0;i<W;i++){
+      const h=Math.max(1.5, pdf[i]/maxP*maxH);
+      const sun=SUN.indexOf(i)>=0;
+      svg.appendChild(el('rect',{x:x0+i*bw+1,y:baseY-h,width:bw-2,height:h,fill:sun?'var(--sun)':'var(--bar)'}));
+    }
+    svg.appendChild(el('line',{x1:x0,y1:baseY,x2:x1,y2:baseY,stroke:'#cbd0d9'}));
+    svg.appendChild(txt(x0,baseY+18,'pdf table (32 normalized weights)',{'font-size':12.5,fill:'var(--muted)'}));
+    svg.appendChild(txt(x1,baseY-maxH+4,'p ≈ 0.304',{'font-size':11.5,fill:'var(--sun)','text-anchor':'end'}));
+    svg.appendChild(txt(x1,baseY-6,'dim p ≈ 0.00304',{'font-size':11.5,fill:'var(--bar)','text-anchor':'end'}));
+  })();
+
+  // ===== Figure 2: CDF inversion (interactive) =====
+  (function(){
+    const svg=document.getElementById('fig-inv'); if(!svg) return;
+    const p=[.05,.15,.40,.25,.10,.05], nb=p.length;
+    const F=[0]; for(let i=0;i<nb;i++) F.push(F[i]+p[i]); F[nb]=1;
+    const x0=64,x1=560,yT=40,yB=300;
+    const xOf=x=>x0+(x/nb)*(x1-x0);
+    const yOf=f=>yB-(yB-yT)*f;
+    const gStatic=el('g'); svg.appendChild(gStatic);
+    // axes
+    gStatic.appendChild(el('line',{x1:x0,y1:yB,x2:x1,y2:yB,stroke:'#9aa0ad','stroke-width':1.2}));
+    gStatic.appendChild(el('line',{x1:x0,y1:yT,x2:x0,y2:yB,stroke:'#9aa0ad','stroke-width':1.2}));
+    // y ticks
+    [0,.25,.5,.75,1].forEach(v=>{
+      gStatic.appendChild(el('line',{x1:x0-4,y1:yOf(v),x2:x0,y2:yOf(v),stroke:'#9aa0ad'}));
+      gStatic.appendChild(txt(x0-8,yOf(v)+4,v.toFixed(2),{'font-size':11,fill:'var(--muted)','text-anchor':'end'}));
+    });
+    gStatic.appendChild(txt(x0-8,yT-14,'F (cumulative)',{'font-size':12,fill:'var(--cdf)','text-anchor':'start'}));
+    // x bin boundaries + labels
+    for(let i=0;i<=nb;i++){
+      gStatic.appendChild(el('line',{x1:xOf(i),y1:yB,x2:xOf(i),y2:yB+4,stroke:'#9aa0ad'}));
+    }
+    for(let i=0;i<nb;i++){
+      gStatic.appendChild(txt((xOf(i)+xOf(i+1))/2,yB+18,'bin '+i,{'font-size':11,fill:'var(--muted)','text-anchor':'middle'}));
+      gStatic.appendChild(txt((xOf(i)+xOf(i+1))/2,yB+32,'p='+p[i].toFixed(2),{'font-size':10.5,fill:'var(--bar)','text-anchor':'middle'}));
+    }
+    // dynamic highlight column (drawn before ramp so ramp sits on top)
+    const gHi=el('g'); svg.appendChild(gHi);
+    // CDF ramp
+    let pts=''; for(let i=0;i<=nb;i++) pts+=xOf(i)+','+yOf(F[i])+' ';
+    svg.appendChild(el('polyline',{points:pts.trim(),fill:'none',stroke:'var(--cdf)','stroke-width':2.4}));
+    for(let i=0;i<=nb;i++) svg.appendChild(el('circle',{cx:xOf(i),cy:yOf(F[i]),r:3,fill:'var(--cdf)'}));
+    // dynamic projection layer
+    const gDyn=el('g'); svg.appendChild(gDyn);
+
+    const uval=document.getElementById('iv-uval'), binEl=document.getElementById('iv-bin'),
+          piEl=document.getElementById('iv-pi'), intEl=document.getElementById('iv-int'), xEl=document.getElementById('iv-x');
+    function redraw(u){
+      clear(gHi); clear(gDyn);
+      const i=findBin(F,u);
+      const t=(F[i+1]>F[i])?(u-F[i])/(F[i+1]-F[i]):0;
+      const xs=i+t;
+      // highlight bin column
+      gHi.appendChild(el('rect',{x:xOf(i),y:yT,width:xOf(i+1)-xOf(i),height:yB-yT,fill:'var(--hit)','fill-opacity':0.10}));
+      // u marker on left axis
+      gDyn.appendChild(el('circle',{cx:x0,cy:yOf(u),r:4,fill:'var(--u)'}));
+      // horizontal dashed to crossing
+      gDyn.appendChild(el('line',{x1:x0,y1:yOf(u),x2:xOf(xs),y2:yOf(u),stroke:'var(--u)','stroke-width':1.6,'stroke-dasharray':'4 3'}));
+      // vertical dashed down to x-axis
+      gDyn.appendChild(el('line',{x1:xOf(xs),y1:yOf(u),x2:xOf(xs),y2:yB,stroke:'var(--hit)','stroke-width':1.6,'stroke-dasharray':'4 3'}));
+      gDyn.appendChild(el('circle',{cx:xOf(xs),cy:yOf(u),r:4.5,fill:'var(--hit)'}));
+      gDyn.appendChild(el('circle',{cx:xOf(xs),cy:yB,r:4.5,fill:'var(--hit)'}));
+      uval.textContent=u.toFixed(2);
+      binEl.textContent=i;
+      piEl.textContent=p[i].toFixed(2);
+      intEl.textContent='['+F[i].toFixed(2)+', '+F[i+1].toFixed(2)+')';
+      xEl.textContent=xs.toFixed(3);
+    }
+    const sl=document.getElementById('iv-u');
+    sl.addEventListener('input',()=>redraw(sl.value/1000));
+    redraw(0.5);
+  })();
+
+  // ===== Figure 3: binary search bisection (static) =====
+  (function(){
+    const svg=document.getElementById('fig-bsearch'); if(!svg) return;
+    const edges=[0,.05,.20,.60,.85,.95,1], n=edges.length;
+    const x0=40,x1=400,bw=(x1-x0)/(n-1);
+    const cellY=70, cellH=34;
+    function ex(i){return x0+i*bw;}
+    // edge cells
+    for(let i=0;i<n;i++){
+      svg.appendChild(el('rect',{x:ex(i)-bw*0.42,y:cellY,width:bw*0.84,height:cellH,fill:'#fff',stroke:'var(--cdf)','stroke-width':1.2,rx:4}));
+      svg.appendChild(txt(ex(i),cellY+22,'F'+i,{'font-size':12,fill:'var(--cdf)','text-anchor':'middle','font-weight':600}));
+      svg.appendChild(txt(ex(i),cellY-8,edges[i].toFixed(2),{'font-size':11,fill:'var(--muted)','text-anchor':'middle'}));
+    }
+    svg.appendChild(txt(x0,30,'searching for u = 0.50  (lo, hi bracket the edges; keep the half containing u)',{'font-size':12.5,fill:'var(--ink)'}));
+    // search steps for u=0.5: [lo0=0,hi=6,mid=3 F=.60>.5 -> hi=3],[lo=0,hi=3,mid=1 F=.05<=.5 -> lo=1],[lo=1,hi=3,mid=2 F=.20<=.5 -> lo=2] => bin 2
+    const steps=[{lo:0,hi:6,mid:3,keep:'hi←mid (0.60 &gt; 0.50)'},
+                 {lo:0,hi:3,mid:1,keep:'lo←mid (0.05 ≤ 0.50)'},
+                 {lo:2,hi:3,mid:2,keep:'result: bin 2'}];
+    let sy=cellY+cellH+22;
+    steps.forEach((s,k)=>{
+      const y=sy+k*20;
+      // bracket bar
+      svg.appendChild(el('line',{x1:ex(s.lo),y1:y,x2:ex(s.hi),y2:y,stroke:'var(--hit)','stroke-width':2.2}));
+      svg.appendChild(el('circle',{cx:ex(s.lo),cy:y,r:3,fill:'var(--hit)'}));
+      svg.appendChild(el('circle',{cx:ex(s.hi),cy:y,r:3,fill:'var(--hit)'}));
+      if(k<2) svg.appendChild(el('circle',{cx:ex(s.mid),cy:y,r:4,fill:'var(--sun)'}));
+      svg.appendChild(txt(x1+0,y+4,'',{}));
+      svg.appendChild(txt(ex(s.hi)+10,y+4,s.keep,{'font-size':11,fill:'var(--muted)'}));
+    });
+    // mark the target bin 2 region on the cells
+    svg.appendChild(el('rect',{x:ex(2)-bw*0.42,y:cellY-2,width:bw*0.84,height:cellH+4,fill:'none',stroke:'var(--sun)','stroke-width':2,rx:5}));
+  })();
+
+  // ===== Figure 4: sky-row sampling histogram (interactive) =====
+  (function(){
+    const svg=document.getElementById('fig-hist'); if(!svg) return;
+    const x0=40,x1=560,wpx=x1-x0,bw=wpx/W,baseY=270,yT=30,maxP=0.33;
+    const hOf=p=>p/maxP*(baseY-yT);
+    const gStatic=el('g'); svg.appendChild(gStatic);
+    gStatic.appendChild(el('line',{x1:x0,y1:baseY,x2:x1,y2:baseY,stroke:'#9aa0ad'}));
+    gStatic.appendChild(txt(x0,20,'frequency per bin — target pdf (outline) vs empirical (filled)',{'font-size':12.5,fill:'var(--muted)'}));
+    // target outline bars
+    for(let i=0;i<W;i++){
+      const h=hOf(pdf[i]);
+      gStatic.appendChild(el('rect',{x:x0+i*bw+1,y:baseY-h,width:bw-2,height:h,fill:'none',stroke:'#b9c0cc','stroke-width':1}));
+    }
+    const gBars=el('g'); svg.appendChild(gBars);
+    let hist=new Array(W).fill(0), total=0;
+    const nEl=document.getElementById('hs-n'), sunEl=document.getElementById('hs-sun'), errEl=document.getElementById('hs-err');
+    function draw(){
+      clear(gBars);
+      for(let i=0;i<W;i++){
+        if(hist[i]===0) continue;
+        const f=hist[i]/total, h=hOf(f), sun=SUN.indexOf(i)>=0;
+        gBars.appendChild(el('rect',{x:x0+i*bw+1.5,y:baseY-h,width:bw-3,height:h,fill:sun?'var(--sun)':'var(--bar)','fill-opacity':0.85}));
+      }
+      nEl.textContent=total.toLocaleString();
+      if(total>0){
+        const sunF=(hist[19]+hist[20]+hist[21])/total;
+        sunEl.textContent=sunF.toFixed(4);
+        let mx=0; for(let i=0;i<W;i++) mx=Math.max(mx,Math.abs(hist[i]/total-pdf[i]));
+        errEl.textContent=mx.toExponential(2);
+      } else { sunEl.textContent='—'; errEl.textContent='—'; }
+    }
+    function add(n){ for(let s=0;s<n;s++){ hist[findBin(cdf,Math.random())]++; } total+=n; draw(); }
+    document.getElementById('hs-10k').addEventListener('click',()=>add(10000));
+    document.getElementById('hs-100k').addEventListener('click',()=>add(100000));
+    document.getElementById('hs-reset').addEventListener('click',()=>{hist=new Array(W).fill(0);total=0;draw();});
+    draw();
+  })();
+
+  // ===== Figure 5 (the discrete pick bar) =====
+  (function(){
+    const svg=document.getElementById('fig-disc'); if(!svg) return;
+    const wq=[90,1,9], tot=100, p=wq.map(w=>w/tot);
+    const C=[0]; for(let i=0;i<3;i++) C.push(C[i]+p[i]);
+    const cols=['var(--bar)','var(--sun)','var(--hit)'];
+    const x0=40,x1=560,wpx=x1-x0, barY=56, barH=36;
+    const xOf=u=>x0+u*wpx;
+    for(let i=0;i<3;i++){
+      svg.appendChild(el('rect',{x:xOf(C[i]),y:barY,width:Math.max(1.2,(C[i+1]-C[i])*wpx),height:barH,fill:cols[i],'fill-opacity':0.85,stroke:'#fff'}));
+    }
+    svg.appendChild(txt(x0,18,'CDF intervals on [0,1): a uniform u picks whichever segment it lands in',{'font-size':12.5,fill:'var(--muted)'}));
+    // light 0 (wide) and light 2 labelled below their segments
+    svg.appendChild(txt(xOf((C[0]+C[1])/2),barY+barH+18,'light 0  (p = 0.90)',{'font-size':12,fill:'var(--bar)','text-anchor':'middle'}));
+    svg.appendChild(txt(xOf((C[2]+1)/2),barY+barH+18,'light 2  (p = 0.09)',{'font-size':12,fill:'var(--hit)','text-anchor':'middle'}));
+    // light 1 is a 1%-wide sliver: label it above, with a leader line down to the segment
+    const slx=xOf((C[1]+C[2])/2);
+    svg.appendChild(el('line',{x1:slx,y1:barY-2,x2:slx,y2:barY-13,stroke:'var(--sun)','stroke-width':1.2}));
+    svg.appendChild(txt(slx,barY-17,'light 1  (p = 0.01)',{'font-size':11.5,fill:'var(--sun)','text-anchor':'middle'}));
+    const gDyn=el('g'); svg.appendChild(gDyn);
+    let hits=[0,0,0], total=0;
+    const eEl=[0,1,2].map(i=>document.getElementById('dc-e'+i));
+    const hEl=[0,1,2].map(i=>document.getElementById('dc-h'+i));
+    function pick(u){let i=0;while(i<2&&u>=C[i+1])i++;return i;}
+    function draw(lastU){
+      clear(gDyn);
+      if(lastU!=null){
+        gDyn.appendChild(el('line',{x1:xOf(lastU),y1:barY-8,x2:xOf(lastU),y2:barY+barH+8,stroke:'var(--u)','stroke-width':2}));
+        gDyn.appendChild(el('circle',{cx:xOf(lastU),cy:barY-8,r:4,fill:'var(--u)'}));
+      }
+      for(let i=0;i<3;i++){
+        eEl[i].textContent= total? (hits[i]/total).toFixed(4):'—';
+        hEl[i].textContent= hits[i].toLocaleString();
+      }
+    }
+    function add(n){let lu=null;for(let s=0;s<n;s++){const u=Math.random();lu=u;hits[pick(u)]++;}total+=n;draw(n===1?lu:null);}
+    document.getElementById('dc-1').addEventListener('click',()=>add(1));
+    document.getElementById('dc-1k').addEventListener('click',()=>add(1000));
+    document.getElementById('dc-reset').addEventListener('click',()=>{hits=[0,0,0];total=0;draw(null);});
+    draw(null);
+  })();
+})();
+</script>
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>

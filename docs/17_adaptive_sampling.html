@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>17 — Adaptive sampling: spend samples where the variance is — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --bar:#2b6cb0; --cdf:#7c3aed; --sun:#dd6b20; --u:#d9a500; --hit:#2f9e64; --uni:#8a93a2; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--hit)}
+  .callout.warn{border-left-color:var(--sun)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:170px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button.sel{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .imgrow{display:flex; gap:14px; flex-wrap:wrap; justify-content:center}
+  .imgrow>div{flex:1 1 200px; text-align:center; min-width:170px}
+  canvas{display:block; width:100%; max-width:230px; margin:0 auto; image-rendering:pixelated; border:1px solid var(--line); border-radius:8px; background:#0a0d12}
+  .pcap{font-size:14px; font-weight:600; margin:8px 0 4px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Adaptive sampling: spend samples where the variance is</h1>
+<p class="sub">17_adaptive_sampling.cpp — example 13 gave every pixel the same sample count, but the noise was not uniform. With a fixed budget, send more samples to the high-variance pixels and fewer to the calm ones — the Neyman allocation.</p>
+
+<p class="lead">In <a href="13_image_convergence_ppm.html">example 13</a> the speckle lived only along edges; flat interiors converged after a handful of samples. Giving those interiors the same 128 samples as the edges is pure waste. <strong>Adaptive sampling</strong> reallocates a fixed total budget: estimate each pixel's noisiness, then pour samples into the noisy pixels and starve the calm ones. The result is the same number of rays at a much lower error — here <strong>3.7× lower</strong>.</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> To minimize the total error $\sum_i \sigma_i^2/n_i$ under a fixed sample budget $\sum_i n_i = B$, give pixel $i$ a share proportional to its standard deviation — $n_i \propto \sigma_i$ (the <em>Neyman allocation</em>) — which you get by taking a cheap <em>pilot</em> pass everywhere to estimate each $\sigma_i$, then handing out the rest of the budget by that weight; the edges soak it up and the flat interiors keep only a floor.</p>
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--sun)"></i> per-pixel variance $\sigma_i$ / sample density</span>
+  <span><i class="dot" style="background:var(--uni)"></i> uniform (equal spp)</span>
+  <span><i class="dot" style="background:var(--hit)"></i> adaptive (Neyman)</span>
+</div>
+
+
+<h2 id="1">1. The waste in uniform sampling<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>A pixel deep inside a flat-shaded region has zero variance: every sub-pixel sample returns the same value, so one sample already nails it and the other 127 add nothing. A pixel straddling an edge has high variance: its samples disagree, and it needs many to average out. Uniform sampling can't tell them apart — it spends equally and so over-pays the interiors and under-pays the edges. The fix is to measure each pixel's variance and budget accordingly.</p>
+
+
+<h2 id="2">2. How many samples each pixel deserves<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>If pixel $i$ has per-sample standard deviation $\sigma_i$ and receives $n_i$ samples, the variance of its averaged estimate is $\sigma_i^2/n_i$. We want to choose the $n_i$ to minimize the total error</p>
+$$\min_{\{n_i\}}\ \sum_i \frac{\sigma_i^2}{n_i}\quad\text{subject to}\quad \sum_i n_i = B.$$
+<p>A Lagrange multiplier turns this into $-\sigma_i^2/n_i^2 + \lambda = 0$ for every pixel, i.e. $n_i = \sigma_i/\sqrt\lambda$. The constant drops out under the budget constraint, leaving the classic <strong>Neyman allocation</strong>:</p>
+$$\boxed{\,n_i \;\propto\; \sigma_i\,}\qquad\Longleftrightarrow\qquad \frac{n_i}{n_j}=\frac{\sigma_i}{\sigma_j}.$$
+<p>Allocate in proportion to the standard deviation, not the variance. The toy below has just two pixels — a noisy one ($\sigma_A$) and a calm one ($\sigma_B$) sharing a budget of 200 samples. Slide the split and watch the total error; it bottoms out exactly where $n_A/n_B=\sigma_A/\sigma_B$.</p>
+
+<figure>
+<svg id="fig-neyman" viewBox="0 0 600 320" role="img" aria-label="Total error as a function of how a fixed sample budget is split between a noisy and a calm pixel."></svg>
+<div class="ctl">
+  samples to noisy pixel $n_A$ = <b id="ny-na" style="display:inline-block; min-width:2.4em; text-align:right; font-variant-numeric:tabular-nums">100</b>
+  <input id="ny-sna" type="range" min="4" max="196" value="100" step="1">
+  &nbsp; calm pixel $\sigma_B$ = <b id="ny-sb" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">0.08</b>
+  <input id="ny-ssb" type="range" min="2" max="40" value="8" step="1">
+</div>
+<div class="panel">
+  <div class="row"><span>split $n_A : n_B$</span><b id="ny-split" style="color:var(--ink)">—</b></div>
+  <div class="row"><span>std-dev ratio $\sigma_A : \sigma_B$</span><b id="ny-sratio" style="color:var(--sun)">—</b></div>
+  <div class="row"><span>total error $\sigma_A^2/n_A+\sigma_B^2/n_B$</span><b id="ny-E" style="color:var(--uni)">—</b></div>
+  <div class="row"><span>optimum at $n_A^\star$</span><b id="ny-opt" style="color:var(--hit)">—</b></div>
+</div>
+<figcaption>Figure 1. Total error vs the budget split, with $\sigma_A=0.40$ fixed. The <span style="color:var(--hit)">minimum</span> (green) sits where the allocation matches the std-dev ratio; push samples past that toward the calm pixel and the error climbs again. Raise $\sigma_B$ toward $\sigma_A$ and the optimum slides to the middle — equal noise wants an equal split.</figcaption>
+</figure>
+
+
+<h2 id="3">3. Estimating $\sigma_i$: the pilot pass<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Neyman needs each $\sigma_i$, which we don't know in advance — so we measure it. A cheap <strong>pilot pass</strong> draws a few samples (here 32) at every pixel and computes the running sample standard deviation (Welford, <a href="01_random_and_estimators.html">example 01</a>). Then the remaining budget is dealt out by the weight $\sigma_i + \varepsilon$, and the pilot samples are reused rather than thrown away.</p>
+
+<div class="callout warn">
+<strong>Why the floor $\varepsilon$.</strong> The pilot's $\hat\sigma_i$ is itself noisy. A thin-edge pixel can unluckily draw 32 nearly-identical pilot samples and look flat ($\hat\sigma_i\approx 0$), which would starve it of all further samples. Adding a small floor ($\varepsilon=0.01$) to the weight guarantees every pixel keeps a baseline allocation, so a mis-estimated pixel is never dropped below the uniform level.</p>
+</div>
+
+
+<h2 id="4">4. Where the budget actually goes<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Run the pilot on example 13's scene and turn each pixel's $\sigma_i$ into a sample-density map. It is bright exactly along the circle edges — the only places with variance — and dark across every flat interior. In the C++ run the busiest edge pixel receives <strong>4378</strong> samples while a flat interior keeps just the <strong>32</strong>-sample pilot floor: a 130× spread, all decided by the pilot's $\sigma_i$.</p>
+
+<figure>
+<div class="imgrow">
+  <div>
+    <div class="pcap">the scene</div>
+    <canvas id="ad-scene" width="120" height="120"></canvas>
+  </div>
+  <div>
+    <div class="pcap" style="color:var(--sun)">sample density &nbsp;∝ $\sigma_i+\varepsilon$</div>
+    <canvas id="ad-density" width="120" height="120"></canvas>
+  </div>
+</div>
+<figcaption>Figure 2. Left: the flat-shaded scene (four circles on a dark background). Right: the adaptive sample density from a live pilot pass — bright where the per-pixel standard deviation is high (the edges), dark where it is zero (the interiors and background). The Neyman rule reads this map and sends the budget to the bright pixels.</figcaption>
+</figure>
+
+
+<h2 id="5">5. The payoff: same budget, lower error<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Compare the two allocations at an <em>identical</em> total sample count. The C++ file renders the full $192\times192$ scene; the numbers it prints:</p>
+
+<table>
+<thead><tr><th>method</th><th class="num">samples / pixel</th><th class="num">total samples</th><th class="num">RMS error</th></tr></thead>
+<tbody>
+<tr><td><span class="dot" style="background:var(--uni)"></span> uniform</td><td class="num">128</td><td class="num">4,718,592</td><td class="num">3.11e−3</td></tr>
+<tr><td><span class="dot" style="background:var(--hit)"></span> adaptive</td><td class="num">32–4378</td><td class="num">4,725,606</td><td class="num">8.37e−4</td></tr>
+</tbody>
+</table>
+<p>Same budget, <strong>3.72× lower RMS error</strong> — purely from placing the samples better. Render it live below at a matched budget (a smaller $120\times120$ scene so it runs in the browser); the <em>error maps</em> (estimate − reference, amplified) make it visible: the uniform map glows with edge noise the adaptive map has scrubbed away, at no extra cost.</p>
+
+<figure>
+<div class="imgrow">
+  <div>
+    <div class="pcap" style="color:var(--uni)">uniform</div>
+    <canvas id="ad-uni" width="120" height="120"></canvas>
+  </div>
+  <div>
+    <div class="pcap" style="color:var(--hit)">adaptive</div>
+    <canvas id="ad-adapt" width="120" height="120"></canvas>
+  </div>
+</div>
+<div class="ctl">
+  budget = <b id="ad-bval" style="display:inline-block; min-width:2.1em; text-align:right; font-variant-numeric:tabular-nums">48</b> avg spp
+  <input id="ad-budget" type="range" min="16" max="96" value="48" step="16">
+  <button id="ad-render">Render</button>
+  <span style="margin-left:6px"></span>
+  view: <button id="ad-errmode" class="sel">error map</button>
+  <button id="ad-imgmode">render</button>
+</div>
+<div class="panel">
+  <div class="row"><span>uniform spp</span><b id="ad-uspp">—</b></div>
+  <div class="row"><span>adaptive spp (avg)</span><b id="ad-aspp">—</b></div>
+  <div class="row"><span>uniform RMS</span><b id="ad-rmsu" style="color:var(--uni)">—</b></div>
+  <div class="row"><span>adaptive RMS</span><b id="ad-rmsa" style="color:var(--hit)">—</b></div>
+  <div class="row"><span>error reduction</span><b id="ad-red" style="color:var(--sun)">—</b></div>
+</div>
+<figcaption>Figure 3. Live uniform vs adaptive at a matched budget (error maps, brightness amplified). Both spend the same total samples; adaptive concentrates them on the edges, so its error map is darker there. The reduction shown is illustrative (small scene, single trial) — the C++ table above is the authoritative $192^2$ result.</figcaption>
+</figure>
+
+
+<h2 id="6">6. In the renderer<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Production renderers do exactly this, usually with a perceptual error metric rather than raw variance: render a pilot, measure where the image is still noisy, and keep tracing only there until each region hits an error target. It is one of the highest-leverage knobs in a renderer because noise is so unevenly distributed — caustics, penumbrae, and glossy highlights cost orders of magnitude more than flat walls.</p>
+
+<p>The <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace">PathTracingDemo</a> renderer does the simple thing instead: every pixel gets the same progressive average each frame (the uniform baseline of <a href="13_image_convergence_ppm.html">example 13</a>), so it keeps spending on long-converged regions while the hard pixels lag. Driving its sample budget from a per-pixel variance estimate — the pilot-and-Neyman idea here — is the kind of upgrade that would buy a cleaner image for the same frame time.</p>
+
+
+<h2 id="7">7. The code<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The pilot pass produces each pixel's $\sigma_i$; the allocation loop turns the floored weights into per-pixel counts that sum to the budget, never dropping below the pilot.</p>
+
+<pre class="language-cpp"><code class="language-cpp">// pilot pass: a few samples everywhere -> per-pixel sigma -> Neyman weight
+for (int i = 0; i &lt; kNumPix; ++i) {
+    double m2; pilotMean[i] = SampleMean(i % W, i / W, kPilot, 2u, &amp;m2);
+    double sigma = std::sqrt(m2 / (kPilot - 1));   // sample std dev (Welford M2)
+    weight[i] = sigma + kSigmaFloor;               // floor: never starve a pixel
+    wSum += weight[i];
+}
+
+// allocate the whole budget in proportion to weight (n_i ~ sigma_i)
+for (int i = 0; i &lt; kNumPix; ++i) {
+    int n = (int)std::llround(kBudget * weight[i] / wSum);
+    if (n &lt; kPilot) n = kPilot;                     // reuse the pilot work
+    int extra = n - kPilot;
+    double extraMean = extra &gt; 0 ? SampleMean(i % W, i / W, extra, 3u) : 0.0;
+    adapt[i] = (kPilot * pilotMean[i] + extra * extraMean) / n;   // combine
+}</code></pre>
+
+<div class="callout">
+<strong>Takeaway.</strong> Noise is not spread evenly across an image, so neither should your samples be. Measure each pixel's variance with a cheap pilot pass and allocate the rest of a fixed budget in proportion to its standard deviation ($n_i\propto\sigma_i$, Neyman): the edges get hundreds of times more samples than the flats, and the whole image converges several times faster for the same ray count.
+</div>
+
+<p class="small" style="margin-top:34px">Part of the <a href="index.html">Monte Carlo &amp; path tracing explainer series</a>. Previous: <a href="16_sampling_patterns_2d.html">16 — Seeing sample patterns</a>. Related: <a href="13_image_convergence_ppm.html">13 — Image-space convergence</a>.</p>
+
+</div>
+
+<script>
+(function(){
+  const NS='http://www.w3.org/2000/svg';
+  function svgEl(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+  function svgTxt(x,y,s,a){const e=svgEl('text',Object.assign({x,y},a||{}));e.textContent=s;return e;}
+
+  // ---------- Figure 1: Neyman two-pixel toy ----------
+  (function(){
+    const svg=document.getElementById('fig-neyman'); if(!svg) return;
+    const B=200, sigA=0.40;
+    const x0=70,x1=560,top=50,bot=250;
+    const xOf=n=>x0+(n/B)*(x1-x0);
+    const slNA=document.getElementById('ny-sna'), slSB=document.getElementById('ny-ssb');
+    const gStatic=svgEl('g'); svg.appendChild(gStatic);
+    const gDyn=svgEl('g'); svg.appendChild(gDyn);
+    // axes
+    gStatic.appendChild(svgEl('line',{x1:x0,y1:bot,x2:x1,y2:bot,stroke:'#9aa0ad'}));
+    gStatic.appendChild(svgEl('line',{x1:x0,y1:top,x2:x0,y2:bot,stroke:'#9aa0ad'}));
+    gStatic.appendChild(svgTxt((x0+x1)/2,bot+34,'samples to the noisy pixel, nₐ  (of 200)',{'font-size':12.5,fill:'var(--muted)','text-anchor':'middle'}));
+    gStatic.appendChild(svgTxt(x0-30,top-18,'total error',{'font-size':12.5,fill:'var(--muted)'}));
+    [50,100,150].forEach(n=>gStatic.appendChild(svgTxt(xOf(n),bot+18,''+n,{'font-size':11,fill:'var(--muted)','text-anchor':'middle'})));
+    function E(nA,sB){return sigA*sigA/nA + sB*sB/(B-nA);}
+    function redraw(){
+      while(gDyn.firstChild)gDyn.removeChild(gDyn.firstChild);
+      const nA=+slNA.value, sB=+slSB.value/100;
+      const optA=B*sigA/(sigA+sB), Emin=E(optA,sB);
+      const yMax=Emin*4, yMin=Emin*0.9;
+      const yOf=e=>{let y=bot-(e-yMin)/(yMax-yMin)*(bot-top); return Math.max(top,Math.min(bot,y));};
+      // curve
+      let d='';
+      for(let n=4;n<=196;n+=1){const px=xOf(n),py=yOf(E(n,sB));d+=(d?'L':'M')+px.toFixed(1)+','+py.toFixed(1)+' ';}
+      gDyn.appendChild(svgEl('path',{d:d.trim(),fill:'none',stroke:'var(--uni)','stroke-width':2.2}));
+      // optimum
+      gDyn.appendChild(svgEl('line',{x1:xOf(optA),y1:top,x2:xOf(optA),y2:bot,stroke:'var(--hit)','stroke-width':1.4,'stroke-dasharray':'4 3'}));
+      gDyn.appendChild(svgEl('circle',{cx:xOf(optA),cy:yOf(Emin),r:5,fill:'var(--hit)'}));
+      gDyn.appendChild(svgTxt(xOf(optA),top-4,'optimum',{'font-size':11,fill:'var(--hit)','text-anchor':'middle'}));
+      // current
+      gDyn.appendChild(svgEl('line',{x1:xOf(nA),y1:top,x2:xOf(nA),y2:bot,stroke:'var(--u)','stroke-width':1.2}));
+      gDyn.appendChild(svgEl('circle',{cx:xOf(nA),cy:yOf(E(nA,sB)),r:4.5,fill:'var(--u)'}));
+      // readouts
+      document.getElementById('ny-na').textContent=nA;
+      document.getElementById('ny-sb').textContent=sB.toFixed(2);
+      const g=(a,b)=>{const r=Math.round(a/b*100)/100;return r;};
+      document.getElementById('ny-split').textContent=nA+' : '+(B-nA);
+      document.getElementById('ny-sratio').textContent=sigA.toFixed(2)+' : '+sB.toFixed(2)+'  ('+(sigA/sB).toFixed(2)+')';
+      document.getElementById('ny-E').textContent=E(nA,sB).toExponential(3);
+      document.getElementById('ny-opt').textContent=optA.toFixed(0)+' : '+(B-optA).toFixed(0);
+    }
+    slNA.addEventListener('input',redraw); slSB.addEventListener('input',redraw); redraw();
+  })();
+
+  // ---------- shared scene + pilot + reference (for Figs 2 & 3) ----------
+  const R=120, kPilot=16, FLOOR=0.01;
+  const circles=[[0.36,0.42,0.24,0.85],[0.62,0.56,0.28,0.45],[0.50,0.74,0.14,1.00],[0.74,0.30,0.12,0.22]];
+  const BG=0.06;
+  function shade(u,v){let s=BG;for(let c=0;c<circles.length;c++){const C=circles[c];const dx=u-C[0],dy=v-C[1];if(dx*dx+dy*dy<=C[2]*C[2])s=C[3];}return s;}
+  const ref=new Float64Array(R*R);
+  (function(){const g=20;for(let py=0;py<R;py++)for(let px=0;px<R;px++){let sum=0;for(let j=0;j<g;j++)for(let i=0;i<g;i++){const u=(px+(i+0.5)/g)/R,v=(py+(j+0.5)/g)/R;sum+=shade(u,v);}ref[py*R+px]=sum/(g*g);}})();
+  const pilotMean=new Float64Array(R*R), weight=new Float64Array(R*R); let wSum=0, maxW=0;
+  for(let py=0;py<R;py++)for(let px=0;px<R;px++){let mean=0,m2=0;for(let k=0;k<kPilot;k++){const u=(px+Math.random())/R,v=(py+Math.random())/R;const s=shade(u,v);const d=s-mean;mean+=d/(k+1);m2+=d*(s-mean);}const sigma=Math.sqrt(m2/(kPilot-1));const i=py*R+px;pilotMean[i]=mean;const w=sigma+FLOOR;weight[i]=w;wSum+=w;if(w>maxW)maxW=w;}
+
+  // ---------- Figure 2: scene + density ----------
+  (function(){
+    const sc=document.getElementById('ad-scene'), de=document.getElementById('ad-density'); if(!sc) return;
+    const gs=sc.getContext('2d'), gd=de.getContext('2d');
+    const si=gs.createImageData(R,R), di=gd.createImageData(R,R);
+    function heat(t){let r,g,b; if(t<0.6){const k=t/0.6;r=26+(221-26)*k;g=31+(107-31)*k;b=41+(32-41)*k;}else{const k=(t-0.6)/0.4;r=221+(255-221)*k;g=107+(255-107)*k;b=32+(255-32)*k;}return[r,g,b];}
+    for(let i=0;i<R*R;i++){
+      const g=Math.round(Math.max(0,Math.min(1,ref[i]))*255);
+      si.data[i*4]=g;si.data[i*4+1]=g;si.data[i*4+2]=g;si.data[i*4+3]=255;
+      const c=heat(Math.sqrt(weight[i]/maxW));
+      di.data[i*4]=c[0];di.data[i*4+1]=c[1];di.data[i*4+2]=c[2];di.data[i*4+3]=255;
+    }
+    gs.putImageData(si,0,0); gd.putImageData(di,0,0);
+  })();
+
+  // ---------- Figure 3: live uniform vs adaptive ----------
+  (function(){
+    const cu=document.getElementById('ad-uni'), ca=document.getElementById('ad-adapt'); if(!cu) return;
+    const gu=cu.getContext('2d'), ga=ca.getContext('2d');
+    const sl=document.getElementById('ad-budget');
+    let mode='error', last=null;
+    function drawMaps(uni,ad){
+      const iu=gu.createImageData(R,R), ia=ga.createImageData(R,R);
+      for(let i=0;i<R*R;i++){
+        let a,b;
+        if(mode==='error'){const K=8;a=Math.min(255,Math.abs(uni[i]-ref[i])*255*K);b=Math.min(255,Math.abs(ad[i]-ref[i])*255*K);}
+        else{a=Math.max(0,Math.min(1,uni[i]))*255;b=Math.max(0,Math.min(1,ad[i]))*255;}
+        a=Math.round(a);b=Math.round(b);
+        iu.data[i*4]=a;iu.data[i*4+1]=a;iu.data[i*4+2]=a;iu.data[i*4+3]=255;
+        ia.data[i*4]=b;ia.data[i*4+1]=b;ia.data[i*4+2]=b;ia.data[i*4+3]=255;
+      }
+      gu.putImageData(iu,0,0); ga.putImageData(ia,0,0);
+    }
+    function render(avg){
+      const budget=avg*R*R; const uni=new Float64Array(R*R), ad=new Float64Array(R*R);
+      let seU=0,seA=0,aTot=0;
+      for(let i=0;i<R*R;i++){
+        const px=i%R, py=(i/R)|0;
+        let m=0; for(let k=0;k<avg;k++){m+=shade((px+Math.random())/R,(py+Math.random())/R);} m/=avg; uni[i]=m; const du=m-ref[i]; seU+=du*du;
+        let n=Math.round(budget*weight[i]/wSum); if(n<kPilot)n=kPilot; aTot+=n;
+        let ma=0; for(let k=0;k<n;k++){ma+=shade((px+Math.random())/R,(py+Math.random())/R);} ma/=n; ad[i]=ma; const da=ma-ref[i]; seA+=da*da;
+      }
+      const rmsU=Math.sqrt(seU/(R*R)), rmsA=Math.sqrt(seA/(R*R));
+      last={uni,ad}; drawMaps(uni,ad);
+      document.getElementById('ad-uspp').textContent=avg;
+      document.getElementById('ad-aspp').textContent=Math.round(aTot/(R*R));
+      document.getElementById('ad-rmsu').textContent=rmsU.toExponential(2);
+      document.getElementById('ad-rmsa').textContent=rmsA.toExponential(2);
+      document.getElementById('ad-red').textContent=(rmsU/rmsA).toFixed(2)+'×';
+      window.__ad={rmsU,rmsA,reduction:rmsU/rmsA,avg};
+    }
+    function setMode(){document.getElementById('ad-errmode').classList.toggle('sel',mode==='error');document.getElementById('ad-imgmode').classList.toggle('sel',mode==='image');}
+    sl.addEventListener('input',()=>{document.getElementById('ad-bval').textContent=sl.value;});
+    sl.addEventListener('change',()=>render(+sl.value));
+    document.getElementById('ad-render').addEventListener('click',()=>render(+sl.value));
+    document.getElementById('ad-errmode').addEventListener('click',()=>{mode='error';setMode();if(last)drawMaps(last.uni,last.ad);});
+    document.getElementById('ad-imgmode').addEventListener('click',()=>{mode='image';setMode();if(last)drawMaps(last.uni,last.ad);});
+    setMode(); render(+sl.value);
+  })();
+})();
+</script>
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>

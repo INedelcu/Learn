@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 — Importance-sampling a 2D environment map — explained</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  pre[class*="language-"], pre[class*="language-"] code[class*="language-"]{font-size:14px; line-height:1.5}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
+<style>
+  :root{
+    --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
+    --bar:#2b6cb0; --cdf:#7c3aed; --sun:#dd6b20; --u:#d9a500; --hit:#2f9e64; --uni:#8a93a2; --codebg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:42px 22px 90px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 6px}
+  h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
+  h3{font-size:17px; margin:26px 0 8px}
+  p{margin:12px 0}
+  .sub{color:var(--muted); font-size:15px; margin-top:0}
+  a{color:#2b6cb0}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre code{background:none; padding:0}
+  .lead{font-size:17px}
+  .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
+  .callout.key{border-left-color:var(--hit)}
+  .callout.warn{border-left-color:var(--sun)}
+  figure{margin:24px 0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{color:var(--muted); font-size:14px; font-style:italic; margin-top:10px; text-align:center}
+  .legend{display:flex; flex-wrap:wrap; gap:14px 22px; margin:10px 0 4px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top:3px solid; display:inline-block; border-radius:2px}
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  th{background:var(--card)}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  .small{font-size:14px; color:var(--muted)}
+  .panel{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-top:14px; font-size:14px}
+  .panel .row{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--line); padding:3px 0}
+  .panel .row b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:200px; vertical-align:middle}
+  .ctl{margin-top:12px; font-size:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center}
+  button{font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--line); background:#fff;
+    border-radius:7px; cursor:pointer; color:var(--ink)}
+  button:hover{background:var(--card)}
+  button:active{transform:translateY(1px)}
+  canvas{display:block; image-rendering:pixelated; max-width:100%; border:1px solid var(--line); border-radius:8px; background:#0a0d12}
+  .twocanvas{display:flex; gap:16px; flex-wrap:wrap}
+  .twocanvas figure, .twocanvas>div{flex:1 1 260px; margin:0}
+  .cap{font-size:13px; color:var(--muted); text-align:center; margin-top:6px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<h1>Importance-sampling a 2D environment map</h1>
+<p class="sub">15_env_map_2d_sampling.cpp — the 2D sequel to example 14. Factor the joint pixel density into a <em>marginal</em> over rows and a <em>conditional</em> within each row, and you can sample any 2D table with two of the 1D binary searches you already have.</p>
+
+<p class="lead">An environment map lights a scene: when a ray escapes, it picks up the sky's color in that direction. Most of the sky is dim, but a small bright patch — the sun — carries almost all the energy. Firing shadow and bounce rays uniformly over the sphere wastes nearly all of them on darkness. We want to <strong>sample directions in proportion to the map's luminance</strong>, so rays land on the sun far more often. <a href="14_tabulated_cdf_sampling.html">Example 14</a> did this for a 1D table; a map is 2D, and the trick that lifts the 1D machinery to 2D is the <strong>marginal–conditional factorization</strong> (pbrt's <code>Distribution2D</code>).</p>
+
+<div class="callout key">
+<strong>One-sentence summary.</strong> Write the joint texel density as $p(u,v)=p(v)\,p(u\mid v)$: build one <em>marginal</em> CDF over the row probabilities $p(v)=\sum_u p(u,v)$ and one <em>conditional</em> CDF per row $p(u\mid v)=p(u,v)/p(v)$; to draw a sample, invert the marginal to pick a row, then invert that row's conditional to pick a column — two 1D binary searches (<a href="14_tabulated_cdf_sampling.html">example 14</a>) give one exact 2D sample with density $p(u,v)$.</p>
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="border-color:var(--bar)"></i> marginal $p(v)$ (row sums)</span>
+  <span><i class="swatch" style="border-color:var(--cdf)"></i> conditional $p(u\mid v)$ (within a row)</span>
+  <span><i class="dot" style="background:var(--u)"></i> uniform inputs $\xi_1,\xi_2$</span>
+  <span><i class="dot" style="background:var(--hit)"></i> the sampled texel</span>
+  <span><i class="dot" style="background:#e62828"></i> importance samples (splats)</span>
+</div>
+
+
+<h2 id="1">1. From a 1D table to a 2D map<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The map here is a small procedural sky: a dim gradient (brighter near the horizon), one intense <span style="color:var(--sun)">sun</span> at texel $(46,9)$, and a fainter glow. It is $64\times32$ texels — the same numbers the C++ file uses. Each texel's luminance is a weight; normalized, they form a 2D probability table $p(u,v)$ with $\sum_{u,v}p(u,v)=1$. The whole job is to draw $(u,v)$ pairs with exactly that probability.</p>
+
+<p>We could flatten the $64\times32$ grid into one length-2048 table and use example 14 verbatim. That works, but the factorization below is cheaper to build incrementally, generalizes cleanly to $N$ dimensions, and is what pbrt and real renderers use — so it is worth seeing directly.</p>
+
+
+<h2 id="2">2. The factorization: marginal × conditional<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Any joint density factors as a density over $v$ times a density over $u$ <em>given</em> $v$:</p>
+$$p(u,v)=p(v)\,p(u\mid v),\qquad p(v)=\sum_{u}p(u,v),\qquad p(u\mid v)=\frac{p(u,v)}{p(v)}.$$
+
+<p>$p(v)$ is the <strong>marginal</strong>: collapse each row to its total probability — how likely the sample is to land <em>somewhere</em> in row $v$. $p(u\mid v)$ is the <strong>conditional</strong>: <em>given</em> we are in row $v$, where along it? Each row gets its own conditional distribution. The figure below shows all three at once: the map, the marginal as a column of bars on the right, and the selected row's conditional as bars underneath.</p>
+
+<figure>
+<canvas id="ec-fact" width="600" height="400"></canvas>
+<div class="ctl">
+  $\xi_1$ (picks row) = <b id="f1-x1" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">0.50</b>
+  <input id="f1-s1" type="range" min="0" max="1000" value="500">
+  &nbsp; $\xi_2$ (picks col) = <b id="f1-x2" style="display:inline-block; min-width:2.6em; text-align:right; font-variant-numeric:tabular-nums">0.50</b>
+  <input id="f1-s2" type="range" min="0" max="1000" value="500">
+</div>
+<div class="panel">
+  <div class="row"><span>row $v$ (from marginal CDF)</span><b id="f1-v" style="color:var(--u)">—</b></div>
+  <div class="row"><span>col $u$ (from conditional CDF)</span><b id="f1-u" style="color:var(--u)">—</b></div>
+  <div class="row"><span>$p(v)$</span><b id="f1-pv" style="color:var(--bar)">—</b></div>
+  <div class="row"><span>$p(u\mid v)$</span><b id="f1-puv" style="color:var(--cdf)">—</b></div>
+  <div class="row"><span>joint $p(v)\,p(u\mid v)$</span><b id="f1-joint" style="color:var(--hit)">—</b></div>
+  <div class="row"><span>matches stored $p(u,v)$?</span><b id="f1-check" style="color:var(--hit)">—</b></div>
+</div>
+<figcaption>Figure 1. The map (tone-mapped), its <span style="color:var(--bar)">marginal $p(v)$</span> on the right (the sun's row is by far the longest bar), and the <span style="color:var(--cdf)">conditional $p(u\mid v)$</span> of the selected row below (rescaled per row so non-sun rows are visible). Drag $\xi_1$ to pick a row through the marginal CDF, then $\xi_2$ to pick a column through that row's conditional CDF — the <span style="color:var(--hit)">green texel</span> is the resulting sample, and its $p(v)\,p(u\mid v)$ equals the stored joint exactly.</figcaption>
+</figure>
+
+
+<h2 id="3">3. Sampling: two inversions, one 2D sample<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Sampling is just example 14 done twice. Take two independent uniforms $\xi_1,\xi_2$:</p>
+<ol>
+<li>Invert the <strong>marginal</strong> CDF with $\xi_1$ to get a row $v$ — a binary search over $32$ row probabilities.</li>
+<li>Invert <strong>row $v$'s conditional</strong> CDF with $\xi_2$ to get a column $u$ — a binary search over $64$ column probabilities.</li>
+</ol>
+<p>Why does the pair land with the right probability? The row is chosen with probability $p(v)$ and the column, given that row, with $p(u\mid v)$, so by the chain rule the joint probability of $(u,v)$ is</p>
+$$p(v)\cdot p(u\mid v)=p(u,v),$$
+<p>exactly the table we normalized. The same factor-and-chain idea samples any 3D, 4D, … density: peel off one dimension as a marginal, recurse on the rest as a conditional. Each texel still returns its density $p(u,v)$ (the green readout above), which is what MIS (<a href="09_multiple_importance_sampling.html">example 09</a>) needs to weight this strategy against, say, BRDF sampling.</p>
+
+<div class="callout">
+<strong>What it costs.</strong> One marginal CDF of length $M_H{+}1$, plus $M_H$ conditional CDFs of length $M_W{+}1$ — here $33 + 32\times65$ floats, built once. Each sample is two binary searches: $O(\log M_H + \log M_W)$, branch-coherent, no rejection. That is pbrt's <code>Distribution2D</code>.
+</div>
+
+
+<h2 id="4">4. It draws the right distribution<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>Histogram four million 2D samples and compare to the joint pdf, texel by texel. The C++ run reports a <strong>maximum absolute error of 0.00013</strong> across all 2048 texels; the sun texel's probability is $0.03505$ (empirical $0.03511$) and a dim sky texel's is $0.00010$ (empirical $0.00011$). Below, the same sampler runs live: red splats accumulate on the map under <span style="color:var(--hit)">env-importance</span> sampling vs <span style="color:var(--uni)">uniform</span> texel picking. Watch where they pile up.</p>
+
+<figure>
+<div class="twocanvas">
+  <div>
+    <canvas id="ec-imp" width="384" height="192"></canvas>
+    <div class="cap"><b style="color:var(--hit)">env-importance</b> — samples follow the energy</div>
+  </div>
+  <div>
+    <canvas id="ec-uni" width="384" height="192"></canvas>
+    <div class="cap"><b style="color:var(--uni)">uniform</b> — samples ignore the sun</div>
+  </div>
+</div>
+<div class="ctl">
+  <button id="sp-500">+500 samples</button>
+  <button id="sp-2k">+2,000</button>
+  <button id="sp-reset">Reset</button>
+</div>
+<div class="panel">
+  <div class="row"><span>samples each</span><b id="sp-n">0</b></div>
+  <div class="row"><span>on the sun — importance</span><b id="sp-imp" style="color:var(--hit)">—</b></div>
+  <div class="row"><span>on the sun — uniform</span><b id="sp-uni" style="color:var(--uni)">—</b></div>
+  <div class="row"><span>sun's share of total energy</span><b id="sp-frac" style="color:var(--sun)">—</b></div>
+</div>
+<figcaption>Figure 2. The live version of the two PPM images the program writes. Importance sampling concentrates its draws on the sun (which holds most of the map's energy); uniform sampling scatters them evenly and mostly hits darkness. The "on the sun" fractions converge to the sun's energy share for importance, and to its tiny area share for uniform.</figcaption>
+</figure>
+
+
+<h2 id="5">5. Why it cuts variance<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The point of all this is variance. The file estimates an integral over the map, $I=\sum_{u,v} f(u,v)\,g(u,v)$, with $g$ a smooth factor in $[0,1]$, two ways:</p>
+<ul>
+<li><strong>Uniform:</strong> pick any texel with probability $1/N$, estimator $N\,f\,g$. The map's huge dynamic range (sun $\approx 200$ vs sky $\approx 0.4$) lands <em>inside</em> the estimator — most samples return almost nothing, a rare few return a spike. High variance.</li>
+<li><strong>Importance:</strong> pick a texel with probability $\propto f$, estimator $f\,g/p = (\text{total})\cdot g$. The $f$ cancels: every sample returns the same order of magnitude, scaled only by the smooth $g$. Much lower variance.</li>
+</ul>
+
+<figure>
+<svg id="fig-var" viewBox="0 0 600 240" role="img" aria-label="Bar chart comparing the estimator variance of uniform vs importance sampling."></svg>
+<figcaption>Figure 3. Estimator variance, from the C++ run (4M samples each). Importance sampling cuts it about $3.5\times$ here. It is "only" $3.5\times$, not enormous, because the estimator still carries the smooth factor $g$ that the map's density does <em>not</em> match — importance sampling cancels $f$, not $g$. Matching the <em>full</em> integrand would drive variance toward zero (<a href="06_importance_sampling.html">example 06</a>); matching the dominant, spiky factor is the practical win.</figcaption>
+</figure>
+
+<table>
+<thead><tr><th>strategy</th><th class="num">estimate</th><th class="num">variance</th><th class="num">vs exact (1082.18)</th></tr></thead>
+<tbody>
+<tr><td><span class="dot" style="background:var(--uni)"></span> uniform texel</td><td class="num">1080.11</td><td class="num">1.376e+07</td><td class="num">−0.19%</td></tr>
+<tr><td><span class="dot" style="background:var(--hit)"></span> env-importance</td><td class="num">1083.87</td><td class="num">3.984e+06</td><td class="num">+0.16%</td></tr>
+</tbody>
+</table>
+
+
+<h2 id="6">6. In the renderer<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>This is how a production renderer lights a scene from an HDR environment. pbrt, for instance, builds exactly this <code>Distribution2D</code> over the map's per-texel luminance, so that whenever a shadow or bounce ray needs a direction toward the sky it is drawn toward the bright parts instead of groping through dark sky — and the returned pdf lets that strategy be combined with BRDF sampling through MIS (<a href="09_multiple_importance_sampling.html">example 09</a>): bright small suns want the map's density, glossy surfaces want the BRDF's, and MIS takes the best of both.</p>
+
+<p>Not every renderer bothers. The <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace">PathTracingDemo</a> renderer does the simpler thing: its miss shader just looks up the environment cubemap in whatever direction a bounce ray already happens to travel — <code>g_EnvTex.SampleLevel(sampler_g_EnvTex, WorldRayDirection(), 0)</code> — with no luminance-based sampling, so it finds the sun only when a BRDF- or cosine-sampled ray chances to point at it. That is precisely the high-variance baseline this example improves on: building a <code>Distribution2D</code> over the cubemap is the upgrade that would let its rays aim at bright regions on purpose.</p>
+
+<p>That closes the sampling toolkit: <a href="05_sampling_distributions.html">inversion and rejection</a> for closed-form densities, <a href="14_tabulated_cdf_sampling.html">1D tables</a>, and now <em>n</em>D tables by factor-and-chain. Everything a renderer samples — lights, BRDFs, environment maps, participating media — is one of these.</p>
+
+
+<h2 id="7">7. The code<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
+
+<p>The 1D helpers are example 14's, unchanged. The 2D part builds the marginal <code>pV</code>/<code>cdfV</code> and one conditional <code>cdfU[v]</code> per row, then samples row-then-column:</p>
+
+<pre class="language-cpp"><code class="language-cpp">std::vector&lt;float&gt; pV(MH);                          // marginal p(v) = row sums
+for (int v = 0; v &lt; MH; ++v) {
+    float s = 0.0f;
+    for (int u = 0; u &lt; MW; ++u) s += pdf2d[v * MW + u];
+    pV[v] = s;
+}
+std::vector&lt;float&gt; cdfV = BuildCdf(pV);
+
+std::vector&lt;std::vector&lt;float&gt;&gt; cdfU(MH);            // one conditional CDF per row
+for (int v = 0; v &lt; MH; ++v) {
+    std::vector&lt;float&gt; row(MW);
+    for (int u = 0; u &lt; MW; ++u) row[u] = pdf2d[v * MW + u] / pV[v];   // p(u | v)
+    cdfU[v] = BuildCdf(row);
+}
+
+auto sample2D = [&amp;](int&amp; ui, int&amp; vi) {
+    float vc = SampleContinuous(cdfV,     rng.NextFloat()); vi = (int)vc;   // 1) row
+    float uc = SampleContinuous(cdfU[vi], rng.NextFloat()); ui = (int)uc;   // 2) column
+};</code></pre>
+
+<div class="callout">
+<strong>Takeaway.</strong> A 2D (or <em>n</em>D) tabulated density is sampled by factoring it into a marginal and conditionals and chaining 1D inversions: pick a row by its total probability, then a column within that row. It is exact, returns its own pdf for MIS, costs two binary searches, and is the environment-map and many-light sampler at the heart of a production path tracer.
+</div>
+
+<p class="small" style="margin-top:34px">Part of the <a href="index.html">Monte Carlo &amp; path tracing explainer series</a>. Previous: <a href="14_tabulated_cdf_sampling.html">14 — Sampling tabulated distributions</a>.</p>
+
+</div>
+
+<script>
+(function(){
+  // ---------- shared environment + Distribution2D (ported from the .cpp) ----------
+  const MW=64, MH=32;
+  function envLum(u,v){
+    let L=0.35+0.25*(1.0-v/MH);
+    let du=u-46.0, dv=v-9.0;
+    if(du*du+dv*dv < 2.4*2.4) L+=200.0;
+    du=u-16.0; dv=v-20.0;
+    if(du*du+dv*dv < 4.0*4.0) L+=12.0;
+    return L;
+  }
+  const f=new Float64Array(MW*MH); let total=0, Lmax=0;
+  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){const L=envLum(u,v);f[v*MW+u]=L;total+=L;if(L>Lmax)Lmax=L;}
+  const pdf2d=new Float64Array(MW*MH); for(let i=0;i<MW*MH;i++)pdf2d[i]=f[i]/total;
+  const pV=new Float64Array(MH); let maxPV=0;
+  for(let v=0;v<MH;v++){let s=0;for(let u=0;u<MW;u++)s+=pdf2d[v*MW+u];pV[v]=s;if(s>maxPV)maxPV=s;}
+  function buildCdf(p){const c=new Float64Array(p.length+1);for(let i=0;i<p.length;i++)c[i+1]=c[i]+p[i];c[c.length-1]=1;return c;}
+  const cdfV=buildCdf(pV);
+  const cond=[], cdfU=[];
+  for(let v=0;v<MH;v++){const row=new Float64Array(MW);for(let u=0;u<MW;u++)row[u]=pdf2d[v*MW+u]/pV[v];cond.push(row);cdfU.push(buildCdf(row));}
+  function findBin(c,x){let lo=0,hi=c.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(c[m]<=x)lo=m;else hi=m;}return lo;}
+  function sampleCont(c,x){const i=findBin(c,x);const f0=c[i],f1=c[i+1];return i+((f1>f0)?(x-f0)/(f1-f0):0);}
+  // grayscale tone-map for display
+  function gray(L){const t=Math.pow(L/Lmax,1/2.4);return Math.round(t*255);}
+  // expose for verification
+  window.__env={MW,MH,total,Lmax,maxPV,sunPdf:pdf2d[9*MW+46],skyPdf:pdf2d[0],
+    sampleAt:(x1,x2)=>{const v=Math.min(MH-1,Math.floor(sampleCont(cdfV,x1)));const u=Math.min(MW-1,Math.floor(sampleCont(cdfU[v],x2)));return{u,v,joint:pV[v]*cond[v][u],stored:pdf2d[v*MW+u]};}};
+
+  // ---------- Figure 1: factorization + sampling chain ----------
+  (function(){
+    const cv=document.getElementById('ec-fact'); if(!cv) return;
+    const ctx=cv.getContext('2d');
+    const cell=6, hx=44, hy=46;                       // heatmap origin
+    const mgx=hx+MW*cell+18, mgw=110;                 // marginal bars
+    const cby=320, cbh=66;                            // conditional bars baseline area (top = cby-cbh)
+    const s1=document.getElementById('f1-s1'), s2=document.getElementById('f1-s2');
+    function draw(){
+      const x1=s1.value/1000, x2=s2.value/1000;
+      const v=Math.min(MH-1,Math.floor(sampleCont(cdfV,x1)));
+      const u=Math.min(MW-1,Math.floor(sampleCont(cdfU[v],x2)));
+      ctx.clearRect(0,0,cv.width,cv.height);
+      // heatmap
+      for(let vv=0;vv<MH;vv++)for(let uu=0;uu<MW;uu++){const g=gray(f[vv*MW+uu]);ctx.fillStyle='rgb('+g+','+g+','+g+')';ctx.fillRect(hx+uu*cell,hy+vv*cell,cell,cell);}
+      // selected row highlight + texel
+      ctx.strokeStyle='rgba(217,165,0,0.95)';ctx.lineWidth=1.5;ctx.strokeRect(hx-0.5,hy+v*cell-0.5,MW*cell+1,cell+1);
+      ctx.strokeStyle='#2f9e64';ctx.lineWidth=2;ctx.strokeRect(hx+u*cell-1.5,hy+v*cell-1.5,cell+3,cell+3);
+      // labels
+      ctx.fillStyle='#5b6472';ctx.font='12px sans-serif';
+      ctx.fillText('environment map (tone-mapped luminance)',hx,36);
+      ctx.fillText('marginal p(v)',mgx,36);
+      ctx.fillText('conditional p(u | v) for row v='+v+'  (rescaled)',hx,cby-cbh-8);
+      // marginal bars (one per row)
+      for(let vv=0;vv<MH;vv++){const w=pV[vv]/maxPV*mgw;ctx.fillStyle=(vv===v)?'#2b6cb0':'rgba(43,108,176,0.35)';ctx.fillRect(mgx,hy+vv*cell+0.5,w,cell-1);}
+      // gold caret at selected row on the marginal
+      ctx.fillStyle='#d9a500';ctx.beginPath();const cy=hy+v*cell+cell/2;ctx.moveTo(mgx-4,cy-4);ctx.lineTo(mgx-4,cy+4);ctx.lineTo(mgx+2,cy);ctx.fill();
+      // conditional bars for row v (rescaled to row max)
+      let cmax=0;for(let uu=0;uu<MW;uu++)if(cond[v][uu]>cmax)cmax=cond[v][uu];
+      ctx.strokeStyle='#e1e4ea';ctx.beginPath();ctx.moveTo(hx,cby);ctx.lineTo(hx+MW*cell,cby);ctx.stroke();
+      for(let uu=0;uu<MW;uu++){const h=cmax>0?cond[v][uu]/cmax*cbh:0;ctx.fillStyle=(uu===u)?'#7c3aed':'rgba(124,58,237,0.45)';ctx.fillRect(hx+uu*cell+0.5,cby-h,cell-1,h);}
+      // gold marker at selected column
+      ctx.strokeStyle='#d9a500';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(hx+u*cell+cell/2,cby+2);ctx.lineTo(hx+u*cell+cell/2,cby-cbh-2);ctx.stroke();
+      // readouts
+      document.getElementById('f1-x1').textContent=x1.toFixed(2);
+      document.getElementById('f1-x2').textContent=x2.toFixed(2);
+      document.getElementById('f1-v').textContent=v;
+      document.getElementById('f1-u').textContent=u;
+      document.getElementById('f1-pv').textContent=pV[v].toFixed(5);
+      document.getElementById('f1-puv').textContent=cond[v][u].toFixed(5);
+      const joint=pV[v]*cond[v][u];
+      document.getElementById('f1-joint').textContent=joint.toExponential(3);
+      document.getElementById('f1-check').textContent=(Math.abs(joint-pdf2d[v*MW+u])<1e-9)?'yes ✓':'NO';
+    }
+    s1.addEventListener('input',draw); s2.addEventListener('input',draw); draw();
+  })();
+
+  // ---------- Figure 2: importance vs uniform splat ----------
+  (function(){
+    const ci=document.getElementById('ec-imp'), cu=document.getElementById('ec-uni'); if(!ci||!cu) return;
+    const cell=6, gi=ci.getContext('2d'), gu=cu.getContext('2d');
+    function renderBase(ctx){for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){const g=gray(f[v*MW+u]);ctx.fillStyle='rgb('+g+','+g+','+g+')';ctx.fillRect(u*cell,v*cell,cell,cell);}}
+    function splat(ctx,px,py){ctx.fillStyle='rgba(230,40,40,0.85)';ctx.fillRect(px,py,2,2);}
+    let n=0, impSun=0, uniSun=0;
+    function onSun(u,v){const du=u-46,dv=v-9;return du*du+dv*dv<9;}   // within 3 texels of the sun
+    const sunShare=(function(){let s=0;for(let v=0;v<MH;v++)for(let u=0;u<MW;u++)if(onSun(u,v))s+=pdf2d[v*MW+u];return s;})();
+    function reset(){n=0;impSun=0;uniSun=0;renderBase(gi);renderBase(gu);upd();}
+    function add(k){
+      for(let s=0;s<k;s++){
+        const vc=sampleCont(cdfV,Math.random()); const vi=Math.min(MH-1,Math.floor(vc));
+        const uc=sampleCont(cdfU[vi],Math.random()); const ui=Math.min(MW-1,Math.floor(uc));
+        splat(gi,uc*cell,vc*cell); if(onSun(ui,vi))impSun++;
+        const ru=Math.random()*MW, rv=Math.random()*MH;
+        splat(gu,ru*cell,rv*cell); if(onSun(Math.floor(ru),Math.floor(rv)))uniSun++;
+      }
+      n+=k; upd();
+    }
+    function upd(){
+      document.getElementById('sp-n').textContent=n.toLocaleString();
+      document.getElementById('sp-imp').textContent=n?(impSun/n*100).toFixed(1)+'%':'—';
+      document.getElementById('sp-uni').textContent=n?(uniSun/n*100).toFixed(1)+'%':'—';
+      document.getElementById('sp-frac').textContent=(sunShare*100).toFixed(1)+'%';
+    }
+    document.getElementById('sp-500').addEventListener('click',()=>add(500));
+    document.getElementById('sp-2k').addEventListener('click',()=>add(2000));
+    document.getElementById('sp-reset').addEventListener('click',reset);
+    reset();
+  })();
+
+  // ---------- Figure 3: variance bars ----------
+  (function(){
+    const NS='http://www.w3.org/2000/svg';
+    const svg=document.getElementById('fig-var'); if(!svg) return;
+    function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+    function txt(x,y,s,a){const e=el('text',Object.assign({x,y},a||{}));e.textContent=s;return e;}
+    const varU=1.376e7, varI=3.984e6, vmax=varU;
+    const baseY=196, top=66, x0=120, bw=120, gap=140;
+    svg.appendChild(txt(300,22,'estimator variance — uniform vs env-importance (lower is better)',{'font-size':13,fill:'var(--muted)','text-anchor':'middle'}));
+    svg.appendChild(el('line',{x1:80,y1:baseY,x2:560,y2:baseY,stroke:'#9aa0ad'}));
+    function bar(x,val,col,label,vlabel){
+      const h=val/vmax*(baseY-top);
+      svg.appendChild(el('rect',{x,y:baseY-h,width:bw,height:h,fill:col,'fill-opacity':0.85,rx:3}));
+      svg.appendChild(txt(x+bw/2,baseY+20,label,{'font-size':13,fill:'var(--ink)','text-anchor':'middle'}));
+      svg.appendChild(txt(x+bw/2,baseY-h-8,vlabel,{'font-size':13,fill:col,'text-anchor':'middle','font-weight':600}));
+    }
+    bar(x0,varU,'var(--uni)','uniform','1.38e7');
+    const ix=x0+gap+bw;
+    bar(ix,varI,'var(--hit)','env-importance','3.98e6');
+    svg.appendChild(txt(ix+bw/2,baseY-(varI/vmax*(baseY-top))-26,'≈ 3.5× lower',{'font-size':13,fill:'var(--sun)','text-anchor':'middle','font-weight':600}));
+  })();
+})();
+</script>
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+</body>
+</html>
