@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -77,12 +90,12 @@
 </div>
 
 
-<h2>1. The problem: random points clump</h2>
+<h2 id="1">1. The problem: random points clump<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Scatter $N$ independent uniform points and the eye immediately finds dense knots and empty holes. <strong>Discrepancy</strong> makes that precise: take any sub-box, compare the <em>fraction of points</em> inside it to its <em>area</em>; the discrepancy is the worst such mismatch over all boxes. Random points have discrepancy $\sim1/\sqrt N$. A low-discrepancy sequence keeps it near $1/N$ — every region holds about its fair share of points at every $N$.</p>
 
 
-<h2>2. See it: random vs. Halton</h2>
+<h2 id="2">2. See it: random vs. Halton<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Same number of points, two ways. The <span style="color:var(--rand)">random</span> set clumps; the <span style="color:var(--qmc)">Halton</span> set tiles the square almost evenly. The faint box is a fixed test region of area $0.25$ — watch its “local-density error” (how far the fraction of points inside strays from $0.25$): Halton’s stays tiny, random’s wanders.</p>
 
@@ -101,7 +114,7 @@
 </figure>
 
 
-<h2>3. The van der Corput sequence (1-D)</h2>
+<h2 id="3">3. The van der Corput sequence (1-D)<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The 1-D building block is the <strong>radical inverse</strong>: write the index $i$ in base $b$, then mirror its digits across the radix point. In base 2, $i=6=110_2$ becomes $0.011_2=\tfrac14+\tfrac18=\tfrac38$. The effect is that each new point bisects the largest empty gap:</p>
 
@@ -124,7 +137,7 @@ $$\text{base 2:}\quad 0,\ \tfrac12,\ \tfrac14,\ \tfrac34,\ \tfrac18,\ \tfrac58,\
 </figure>
 
 
-<h2>4. The Halton sequence ($d$-D)</h2>
+<h2 id="4">4. The Halton sequence ($d$-D)<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>To fill a $d$-dimensional cube, run a van der Corput sequence in each axis but with a <strong>different prime base per dimension</strong> — 2, 3, 5, 7, … The bases must be coprime, or the dimensions line up into a visible lattice instead of covering the cube. For 2-D that is bases 2 and 3, exactly the right panel of Figure 1:</p>
 
@@ -133,7 +146,7 @@ $$\mathbf x_i=\big(\,\Phi_2(i),\ \Phi_3(i)\,\big),\qquad \Phi_b=\text{radical in
 <p>This is the sequence pbrt’s <code>HaltonSampler</code> is built on. It is deterministic — no RNG — yet covers the domain better than any random draw.</p>
 
 
-<h2>5. Why it converges faster</h2>
+<h2 id="5">5. Why it converges faster<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The link between “well spread” and “accurate” is the <strong>Koksma–Hlawka inequality</strong>:</p>
 
@@ -142,7 +155,7 @@ $$\Big|\,\underbrace{\tfrac1N\textstyle\sum_i f(\mathbf x_i)}_{\text{estimate}}-
 <p>The error is bounded by how much the function varies times how non-uniform the points are. We can’t change $f$, but we <em>can</em> shrink the discrepancy: random’s $D_N^*\sim1/\sqrt N$ gives the familiar $1/\sqrt N$ error, while a low-discrepancy sequence’s $D_N^*\sim(\log N)^d/N$ gives error nearly $1/N$ for smooth $f$ — almost the square of the accuracy at the same $N$.</p>
 
 
-<h2>6. Convergence: 1/√N vs. ~1/N</h2>
+<h2 id="6">6. Convergence: 1/√N vs. ~1/N<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Integrate $f(x,y)=e^{x+y}$ over the unit square (exact $=(e-1)^2$) and plot the error against $N$ on log–log axes. Random sampling (RMS error over many trials) tracks slope $-\tfrac12$; Halton tracks slope $\approx-1$. Different slope = different convergence <em>order</em>.</p>
 
@@ -157,19 +170,19 @@ $$\Big|\,\underbrace{\tfrac1N\textstyle\sum_i f(\mathbf x_i)}_{\text{estimate}}-
 </figure>
 
 
-<h2>7. The catch: high dimensions and randomized QMC</h2>
+<h2 id="7">7. The catch: high dimensions and randomized QMC<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <div class="callout warn">
 <strong>Why renderers don’t use raw Halton everywhere.</strong> In high dimensions the small prime bases run out and pairs of dimensions develop visible correlation (the radical inverses in bases 11 and 13 trace slanted patterns before they fill in). Production samplers therefore <strong>scramble</strong> the sequence — <em>randomized QMC</em> — which restores an unbiased, per-run error estimate while keeping the fast convergence. Owen scrambling (example 35) and high-dimensional QMC pitfalls (example 42) develop this; here we show the raw, unscrambled idea.
 </div>
 
 
-<h2>8. The code</h2>
+<h2 id="8">8. The code<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/11_low_discrepancy.cpp" target="_blank" rel="noopener"><code>11_low_discrepancy.cpp</code></a>.</p>
 
 <p>The whole sampler is the radical inverse; Halton is just two of them with different bases:</p>
 
-<pre><code>// radical inverse of a in base b: mirror a's base-b digits about the radix point
+<pre class="language-cpp"><code class="language-cpp">// radical inverse of a in base b: mirror a's base-b digits about the radix point
 double RadicalInverse(unsigned base, uint64_t a) {
     double invBase = 1.0/base, invBaseN = 1.0, result = 0.0;
     while (a) {
@@ -192,14 +205,14 @@ double y = RadicalInverse(3, i);
 <p>The <code>error·sqrt(N)</code> column (random) and the <code>error·N</code> column (Halton) both stay roughly constant — exposing the two different convergence orders directly.</p>
 
 
-<h2>9. In the renderer</h2>
+<h2 id="9">9. In the renderer<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <div class="callout">
 <strong>Rendering link.</strong> This <a href="https://github.com/INedelcu/PathTracingDemo" target="_blank" rel="noopener">demo renderer</a> (the <code>PathTracingDemo</code> project these docs accompany) keeps sampling simple: it jitters pixel (and lens/light) samples with a Wang-hash RNG — <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Utils.hlsl#L31" target="_blank" rel="noopener"><code>RandomFloat01</code></a> (built on <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Utils.hlsl#L21" target="_blank" rel="noopener"><code>WangHash</code></a>) — i.e. plain random jitter (<a href="07_stratified_sampling.html">example 07</a>). Production path tracers and pbrt instead drive those same samples with low-discrepancy sequences (Halton, Sobol) to buy the $\sim1/N$ convergence shown here. Same hook in the pipeline, faster sampler — the upgrade path from this demo to a production renderer.
 </div>
 
 
-<h2>10. Takeaways</h2>
+<h2 id="10">10. Takeaways<a class="hlink" href="#10" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Discrepancy is the lever.</strong> Error $\le V(f)\times D_N^*$ (Koksma–Hlawka); lowering the discrepancy lowers the error without touching $f$.</li>
 <li><strong>Radical inverse / van der Corput.</strong> Mirror the index’s base-$b$ digits; each new point bisects the largest gap — discrepancy $\sim(\log N)/N$ in 1-D.</li>
@@ -343,5 +356,12 @@ double y = RadicalInverse(3, i);
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

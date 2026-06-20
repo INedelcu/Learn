@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -80,12 +93,12 @@
 </div>
 
 
-<h2>1. The goal: from Uniform[0,1) to any density</h2>
+<h2 id="1">1. The goal: from Uniform[0,1) to any density<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>A <strong>probability density</strong> $p(x)\ge0$ with $\int p=1$ says how likely each region is. We have a generator of uniform numbers; we want samples whose histogram matches an arbitrary $p$. The trick in both methods is to route the uniformity through $p$ — either by warping the number through the CDF, or by filtering candidates so the survivors are distributed as $p$.</p>
 
 
-<h2>2. Inversion: warp a uniform number through the CDF</h2>
+<h2 id="2">2. Inversion: warp a uniform number through the CDF<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Given $p(x)$, its <strong>cumulative distribution function</strong> (CDF) accumulates probability mass from the left and rises from $0$ to $1$:</p>
 
@@ -131,7 +144,7 @@ $$T=-\frac{\ln(1-U)}{\lambda}.$$
 </div>
 
 
-<h2>3. Rejection: throw darts under the curve</h2>
+<h2 id="3">3. Rejection: throw darts under the curve<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>When the CDF has no closed-form inverse, inversion stalls — but you can still sample $p$ as long as you can (a) <em>evaluate</em> $p(x)$ and (b) find a constant $M$ and an easy-to-sample density $q$ with</p>
 
@@ -168,7 +181,7 @@ $$\frac{p(x)}{M\,q(x)}=\frac{3x^2}{3\cdot1}=x^2,$$
 <p>so you accept a uniform candidate $x$ with probability $x^2$. The acceptance rate is $1/M=1/3$: about two of every three candidates are thrown away.</p>
 
 
-<h2>4. Inversion vs. rejection</h2>
+<h2 id="4">4. Inversion vs. rejection<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <table>
 <thead><tr><th>&nbsp;</th><th>Inversion</th><th>Rejection</th></tr></thead>
@@ -184,17 +197,17 @@ $$\frac{p(x)}{M\,q(x)}=\frac{3x^2}{3\cdot1}=x^2,$$
 <p>In practice the renderer leans almost entirely on inversion-style sampling, because the densities it cares about (cosine-weighted hemisphere, GGX/VNDF, the exponential above) have closed-form inverses worked out — see examples <a href="08_hemisphere_sampling.html">08</a> and 19. Rejection is the safety net for everything else.</p>
 
 
-<h2>5. Verifying a sampler</h2>
+<h2 id="5">5. Verifying a sampler<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>How do you know a sampler is correct? Histogram its output and compare each bar to the density it <em>should</em> have. The file’s <code>CheckHistogram</code> does exactly that: empirical density in a bin is $\dfrac{\text{count}}{N\cdot\text{binwidth}}$, compared against $p$ evaluated across the bin. Both interactive figures above are this same test, live — the bars settle onto the $p(x)$ curve as samples accumulate.</p>
 
 
-<h2>6. The code</h2>
+<h2 id="6">6. The code<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/05_sampling_distributions.cpp" target="_blank" rel="noopener"><code>05_sampling_distributions.cpp</code></a>.</p>
 
 <p>Each sampler is a single expression (inversion) or a short accept/reject loop, followed by the histogram check:</p>
 
-<pre><code>// A — inversion of p(x) = 2x:   X = sqrt(U)
+<pre class="language-cpp"><code class="language-cpp">// A — inversion of p(x) = 2x:   X = sqrt(U)
 for (int i = 0; i &lt; kN; ++i) buf[i] = std::sqrt(rng.NextFloat());
 
 // B — inversion of the exponential:  T = -ln(1-U)/lambda
@@ -211,7 +224,7 @@ while (got &lt; kN) {
 <p>The reported acceptance rate lands near $1/3$, the exponential’s sample mean near $1/\lambda$, and every measured histogram bar tracks its predicted density — the samplers are correct.</p>
 
 
-<h2>7. Takeaways</h2>
+<h2 id="7">7. Takeaways<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Inversion.</strong> $X=P^{-1}(U)$ turns one uniform draw into one exact sample of $p$. Use it whenever the CDF inverts in closed form. Examples: $p=2x\Rightarrow\sqrt U$; exponential $\Rightarrow-\ln(1-U)/\lambda$.</li>
 <li><strong>Rejection.</strong> Bound $p\le Mq$, draw from $q$, accept with probability $p/(Mq)$. Completely general but accepts only $1/M$ of candidates.</li>
@@ -381,5 +394,12 @@ while (got &lt; kN) {
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

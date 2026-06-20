@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -79,7 +92,7 @@
 </div>
 
 
-<h2>1. The lever: any $p$ is unbiased, but not equally noisy</h2>
+<h2 id="1">1. The lever: any $p$ is unbiased, but not equally noisy<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Recall the general estimator and its mean from <a href="03_monte_carlo_integration.html">example 03</a> — unbiased for any valid $p$:</p>
 
@@ -88,7 +101,7 @@ $$I=\int f(x)\,dx=\mathbb E_{X\sim p}\!\left[\frac{f(X)}{p(X)}\right].$$
 <p><a href="04_variance_and_clt.html">Example 04</a> then told us the noise is set by the <em>variance</em> of the thing being averaged, here the per-sample value $Y=f(X)/p(X)$. So the bias is fixed (zero) no matter what $p$ we pick — but the variance $\operatorname{Var}[Y]$, and therefore the noise, is entirely ours to control through $p$.</p>
 
 
-<h2>2. The idea: flatten the ratio $f/p$</h2>
+<h2 id="2">2. The idea: flatten the ratio $f/p$<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>$\operatorname{Var}[Y]$ measures how much $f(X)/p(X)$ jumps around as $X$ varies. Two extremes make it concrete:</p>
 
@@ -116,7 +129,7 @@ $$I=\int f(x)\,dx=\mathbb E_{X\sim p}\!\left[\frac{f(X)}{p(X)}\right].$$
 </figure>
 
 
-<h2>3. The experiment: uniform vs. a matched line</h2>
+<h2 id="3">3. The experiment: uniform vs. a matched line<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The file integrates $f(x)=e^x$ on $[0,1]$ (exact $I=e-1\approx1.7182818$) two ways with the same sample budget:</p>
 
@@ -154,7 +167,7 @@ $$\operatorname{Var}_{\text{uniform}}\approx0.242,\qquad \operatorname{Var}_{\te
 </figure>
 
 
-<h2>4. This is what the path tracer does</h2>
+<h2 id="4">4. This is what the path tracer does<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The renderer never fires rays uniformly over the hemisphere. A BRDF concentrates outgoing energy in particular directions — a sharp specular lobe, or the cosine-weighted diffuse lobe — and uniform directions would mostly sample directions that contribute almost nothing, leaving the few important ones under-sampled and noisy. Instead it draws directions from a density shaped like the lobe:</p>
 
@@ -163,12 +176,12 @@ $$\operatorname{Var}_{\text{uniform}}\approx0.242,\qquad \operatorname{Var}_{\te
 </div>
 
 
-<h2>5. The code</h2>
+<h2 id="5">5. The code<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/06_importance_sampling.cpp" target="_blank" rel="noopener"><code>06_importance_sampling.cpp</code></a>.</p>
 
 <p>Two Welford passes (<a href="01_random_and_estimators.html">example 01</a>) accumulate the per-sample <em>variance</em> of each method’s estimator value, then compare:</p>
 
-<pre><code>auto f    = [](double x){ return std::exp(x); };
+<pre class="language-cpp"><code class="language-cpp">auto f    = [](double x){ return std::exp(x); };
 auto pImp = [](double x){ return (2.0/3.0)*(1.0 + x); };           // density ∝ leans like e^x
 auto sampleImp = [&]{ return -1.0 + std::sqrt(1.0 + 3.0*rng.NextFloat()); };  // inversion
 
@@ -185,7 +198,7 @@ printf("variance reduction factor: %.2fx\n", var1/var2);              // ~9x</co
 <p>Both <code>m1</code> and <code>m2</code> print the same $\approx1.71828$ (unbiased); only the variances differ — <code>var1/var2 ≈ 9</code>.</p>
 
 
-<h2>6. Takeaways</h2>
+<h2 id="6">6. Takeaways<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Choosing $p$ is the noise knob.</strong> Every $p&gt;0$ on $f$’s support is unbiased; the variance — and only the variance — depends on $p$.</li>
 <li><strong>Match $p$ to $f$.</strong> The flatter the ratio $f/p$, the lower the variance. Sampling where the integrand is large is importance sampling.</li>
@@ -332,5 +345,12 @@ printf("variance reduction factor: %.2fx\n", var1/var2);              // ~9x</co
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -78,7 +91,7 @@
 </div>
 
 
-<h2>1. The infinite sum</h2>
+<h2 id="1">1. The infinite sum<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Model a path with constant per-bounce albedo $\rho$ and constant emission $e$ at every vertex. The radiance is a geometric series — emission at the first vertex, plus $\rho$ times the emission seen after one bounce, plus $\rho^2$ after two, and so on:</p>
 
@@ -113,7 +126,7 @@ $$S=e\,(1+\rho+\rho^2+\rho^3+\cdots)=\frac{e}{1-\rho}.$$
 </figure>
 
 
-<h2>2. Fixed truncation is biased (too dark)</h2>
+<h2 id="2">2. Fixed truncation is biased (too dark)<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Stop after $K$ bounces and you sum only the first $K+1$ terms, missing $S\,\rho^{K+1}$ of the answer — always an <em>under</em>estimate. Slide $K$: the cumulative estimate climbs toward $S$ but never reaches it, and the missing tail (grey bars) is the energy you discarded.</p>
 
@@ -128,7 +141,7 @@ $$S=e\,(1+\rho+\rho^2+\rho^3+\cdots)=\frac{e}{1-\rho}.$$
 </figure>
 
 
-<h2>3. The roulette mechanic</h2>
+<h2 id="3">3. The roulette mechanic<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Instead of a fixed cutoff, after each vertex flip a coin: <strong>continue</strong> with probability $q$, else <strong>stop</strong>. On every continuation, divide the running weight by $q$. With the throughput-matched choice $q=\rho$ the weight stays exactly $1$ (the $/q$ cancels the $\times\rho$), so every surviving vertex contributes exactly $e$ and the path length is the only random thing. Re-roll a single path and watch it terminate at a random, finite depth:</p>
 
@@ -144,7 +157,7 @@ $$S=e\,(1+\rho+\rho^2+\rho^3+\cdots)=\frac{e}{1-\rho}.$$
 </figure>
 
 
-<h2>4. Why it stays unbiased</h2>
+<h2 id="4">4. Why it stays unbiased<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Track term $k$ of the sum. It is reached only if the path survived $k$ coin flips, which happens with probability $q^k$; and when reached, the weight has been divided by $q$ that many times, so it is scaled by $1/q^k$. The expected contribution of term $k$ is therefore</p>
 
@@ -157,7 +170,7 @@ $$\mathbb E[\text{steps}]=1+q+q^2+\cdots=\frac{1}{1-q},$$
 <p>which is finite. The randomized stopping is what converts an infinite computation into a finite one without tilting the average.</p>
 
 
-<h2>5. The payoff: unbiased at any $q$</h2>
+<h2 id="5">5. The payoff: unbiased at any $q$<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Run many paths and histogram their estimates. Wherever you set $q$, the mean sits on $S=5$ — roulette is unbiased — but the <em>spread</em> changes: a smaller $q$ kills paths sooner (less work) at the cost of higher variance. Slide $q$ and watch the centre hold while the width breathes.</p>
 
@@ -179,7 +192,7 @@ $$\mathbb E[\text{steps}]=1+q+q^2+\cdots=\frac{1}{1-q},$$
 </figure>
 
 
-<h2>6. Choosing $q$: the variance–cost tradeoff</h2>
+<h2 id="6">6. Choosing $q$: the variance–cost tradeoff<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>If roulette is unbiased for any $q$, why not pick a tiny $q$ and stop almost immediately? Because the compensating $1/q$ blows up the surviving weight, and the variance with it. The per-path variance for this model is</p>
 
@@ -193,17 +206,17 @@ $$\operatorname{Var}=\frac{e^2+2e\rho S}{\,1-\rho^2/q\,}-S^2 ,$$
 </figure>
 
 
-<h2>7. This is the renderer’s path termination</h2>
+<h2 id="7">7. This is the renderer’s path termination<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <div class="callout">
 <strong>Rendering link.</strong> The ray-gen loop applies exactly this. After accumulating a bounce it calls <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L94" target="_blank" rel="noopener">RussianRouletteTerminate</a>, defined in <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Utils.hlsl#L155" target="_blank" rel="noopener"><code>Utils.hlsl</code></a>: it sets the survival probability to the max channel of the running throughput, <code>clamp(max(throughput.rgb), 0.05, 0.95)</code>, terminates if a uniform draw exceeds it, and otherwise does <code>throughput *= 1/q</code> — the same compensation. The $q=$throughput rule is our $q=\rho$; the $0.05$ floor prevents the $1/q$ firefly blowup (our $q&gt;\rho^2$ rule), the $0.95$ ceiling keeps paths finite, and RR is skipped for the first couple of bounces so the bright early path stays low-variance.</p>
 </div>
 
 
-<h2>8. The code</h2>
+<h2 id="8">8. The code<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/10_russian_roulette.cpp" target="_blank" rel="noopener"><code>10_russian_roulette.cpp</code></a>.</p>
 
-<pre><code>const double e = 1.0, rho = 0.8, q = rho;       // continuation prob = albedo
+<pre class="language-cpp"><code class="language-cpp">const double e = 1.0, rho = 0.8, q = rho;       // continuation prob = albedo
 for (long long p = 0; p &lt; kPaths; ++p) {
     double s = 0.0, weight = 1.0;
     for (;;) {
@@ -219,7 +232,7 @@ for (long long p = 0; p &lt; kPaths; ++p) {
 <p>Because $q=\rho$, the <code>weight /= q; weight *= rho;</code> pair leaves the weight at $1$, so the loop reduces to “count $e$ per surviving bounce.” The mean lands on $5$ (unbiased) where fixed truncation always fell short.</p>
 
 
-<h2>9. Takeaways</h2>
+<h2 id="9">9. Takeaways<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Truncation is biased.</strong> Cutting the path at a fixed depth discards the geometric tail $S\rho^{K+1}$ — systematic energy loss, too-dark interreflections.</li>
 <li><strong>Russian roulette is unbiased.</strong> Continue with probability $q$ and divide the weight by $q$ on survival; reaching-probability $q^k$ and weight $1/q^k$ cancel, so $\mathbb E$ equals the full sum.</li>
@@ -415,5 +428,12 @@ for (long long p = 0; p &lt; kPaths; ++p) {
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

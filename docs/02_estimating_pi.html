@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -81,7 +94,7 @@
 </div>
 
 
-<h2>1. The idea: area as a probability</h2>
+<h2 id="1">1. The idea: area as a probability<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Scatter darts uniformly over the unit square $[0,1]\times[0,1]$. A dart at $(x,y)$ counts as a <strong>hit</strong> when it lands inside the quarter circle $x^2+y^2\le1$. Because the darts are uniform, the probability of a hit is just the area of the hit region divided by the area of the square:</p>
 
@@ -112,7 +125,7 @@ $$p=\Pr[\text{hit}]=\frac{\text{area of quarter circle}}{\text{area of square}}=
 </figure>
 
 
-<h2>2. It is really Monte Carlo integration</h2>
+<h2 id="2">2. It is really Monte Carlo integration<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The dart game is a disguised integral. Define the <strong>indicator</strong> $f(x,y)=1$ when $x^2+y^2\le1$ and $0$ otherwise. Its expectation over the uniform square is exactly the area we want:</p>
 
@@ -125,7 +138,7 @@ $$\hat\pi_N=4\cdot\hat p_N=\frac4N\sum_{i=1}^N I_i .$$
 <p>It is <strong>unbiased</strong>: $\mathbb E[\hat\pi_N]=4\,\mathbb E[I_i]=4p=\pi$. On average it is right; the only question is how fast the scatter around that average shrinks.</p>
 
 
-<h2>3. Throw the darts</h2>
+<h2 id="3">3. Throw the darts<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Throw a few thousand and watch the estimate jump around $\pi$. Notice it is still wobbling in the second decimal place even after thousands of darts — that sluggishness is the whole story of this page.</p>
 
@@ -153,7 +166,7 @@ $$\hat\pi_N=4\cdot\hat p_N=\frac4N\sum_{i=1}^N I_i .$$
 </figure>
 
 
-<h2>4. The 1/√N law — where the slowness comes from</h2>
+<h2 id="4">4. The 1/√N law — where the slowness comes from<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Every Monte Carlo estimate is an average of $N$ independent samples, and the variance of an average of independent things is the per-sample variance divided by $N$:</p>
 
@@ -173,7 +186,7 @@ This is exactly why path-traced images are noisy and why the noise is so stubbor
 </div>
 
 
-<h2>5. Watch the error fall — and track its prediction</h2>
+<h2 id="5">5. Watch the error fall — and track its prediction<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Plotting the absolute error against $N$ on <strong>log–log</strong> axes turns the power law $\text{error}\approx C\,N^{-1/2}$ into a straight line of slope $-\tfrac12$. The measured error (blue) rattles around the predicted line (orange) — same slope, same ballpark — confirming the formula really does describe the noise.</p>
 
@@ -188,7 +201,7 @@ This is exactly why path-traced images are noisy and why the noise is so stubbor
 </figure>
 
 
-<h2>6. error × √N: the constant that refuses to vanish</h2>
+<h2 id="6">6. error × √N: the constant that refuses to vanish<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Here is the file’s sharpest diagnostic. If the error truly behaves like $C/\sqrt N$, then multiplying it by $\sqrt N$ should cancel the $N$-dependence and leave a flat, wobbling constant — <em>not</em> something that keeps falling toward zero. It does:</p>
 
@@ -207,7 +220,7 @@ This is exactly why path-traced images are noisy and why the noise is so stubbor
 </div>
 
 
-<h2>7. The price of precision</h2>
+<h2 id="7">7. The price of precision<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Invert the law to see the cost. To reach a target error $\varepsilon$ you need about $N\approx\left(C/\varepsilon\right)^2$ samples. Drag the target error and watch the required sample count explode quadratically.</p>
 
@@ -226,12 +239,12 @@ This is exactly why path-traced images are noisy and why the noise is so stubbor
 </figure>
 
 
-<h2>8. The program, end to end</h2>
+<h2 id="8">8. The program, end to end<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/02_estimating_pi.cpp" target="_blank" rel="noopener"><code>02_estimating_pi.cpp</code></a>.</p>
 
 <p>The C++ file streams 100 million darts, reporting at each decade the estimate, the actual error, the predicted error $C/\sqrt N$, and the diagnostic error$\times\sqrt N$:</p>
 
-<pre><code>Rng rng(/*sequence=*/2);
+<pre class="language-cpp"><code class="language-cpp">Rng rng(/*sequence=*/2);
 const double p = M_PI / 4.0;                 // true hit probability
 const double C = 4.0 * sqrt(p * (1.0 - p));  // error*sqrt(N) ~ this constant (~1.64)
 
@@ -253,7 +266,7 @@ for (long long i = 0; i &lt; 100000000; ++i) {
 <p>Two things to read off the output: <code>err</code> and <code>pred</code> stay in the same ballpark (the formula works), and <code>err*sqrtN</code> wobbles around $\sim1.64$ instead of trending to zero (the rate is exactly $1/\sqrt N$).</p>
 
 
-<h2>9. Takeaways</h2>
+<h2 id="9">9. Takeaways<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Geometry → probability → integral.</strong> The dart fraction estimates the area $\pi/4$; it is Monte Carlo integration of an indicator function, and the estimator $\hat\pi_N=4\hat p_N$ is unbiased.</li>
 <li><strong>Error $\propto1/\sqrt N$.</strong> Because a sample mean has variance $\sigma^2/N$, the standard error is $\sigma/\sqrt N$ — here $C/\sqrt N$ with $C=4\sqrt{p(1-p)}\approx1.64$.</li>
@@ -430,5 +443,12 @@ for (long long i = 0; i &lt; 100000000; ++i) {
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

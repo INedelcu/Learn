@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -79,7 +92,7 @@
 </div>
 
 
-<h2>1. The problem: each strategy fails where the other wins</h2>
+<h2 id="1">1. The problem: each strategy fails where the other wins<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>One density can importance-sample one feature. Put two features in the integrand and any single density is starved on at least one of them — and a starved density is exactly the recipe for a variance explosion: it almost never samples that region, but when it does, $f/p$ is enormous because $p$ there is tiny.</p>
 
@@ -111,7 +124,7 @@
 </figure>
 
 
-<h2>2. The combined, unbiased estimator</h2>
+<h2 id="2">2. The combined, unbiased estimator<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Take one sample from each strategy per iteration and add them up, each scaled by a weight:</p>
 
@@ -120,7 +133,7 @@ $$F=w_1(X_1)\,\frac{f(X_1)}{p_1(X_1)}+w_2(X_2)\,\frac{f(X_2)}{p_2(X_2)},\qquad X
 <p>As long as the weights <strong>sum to one at every point</strong>, $w_1(x)+w_2(x)=1$, the estimator is unbiased — $\mathbb E[F]=\int f$. (Each term contributes $\int w_i f$, and summing over $i$ rebuilds $\int f$.) So we are free to choose <em>any</em> partition-of-unity weights; the only question is which choice minimizes variance.</p>
 
 
-<h2>3. The balance heuristic, and why it tames spikes</h2>
+<h2 id="3">3. The balance heuristic, and why it tames spikes<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Veach &amp; Guibas’s <strong>balance heuristic</strong> weights each strategy by how likely it was to have produced that point:</p>
 
@@ -135,7 +148,7 @@ $$w_i(x)\,\frac{f(x)}{p_i(x)}=\frac{p_i(x)}{p_1(x)+p_2(x)}\cdot\frac{f(x)}{p_i(x
 </div>
 
 
-<h2>4. A self-contained experiment: two peaks</h2>
+<h2 id="4">4. A self-contained experiment: two peaks<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Everything here has a closed form so we can check it. Build two sharp peaks from truncated exponentials on $[0,1]$ (sharpness $a$, normalizer $Z=1-e^{-a}$):</p>
 
@@ -148,7 +161,7 @@ $$f(x)=A\,p_1(x)+B\,p_2(x)\quad\Longrightarrow\quad \int_0^1 f=A+B .$$
 <p>With $A=1,B=4$ the answer is $5$. $p_1$ samples the left peak beautifully but is starved at the right peak (and vice versa), so each strategy alone is noisy — and MIS should fix it. Each method gets the same budget of <strong>2 samples</strong> per estimate.</p>
 
 
-<h2>5. See the spike vs. the bounded MIS term</h2>
+<h2 id="5">5. See the spike vs. the bounded MIS term<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p><em>Top:</em> the target $f$ and the two sampling densities. <em>Bottom:</em> the value each estimator assigns at $x$ — the single-strategy ratios $f/p_1$ and $f/p_2$ rocket off-scale where their density starves, while the MIS term $f/(p_1+p_2)$ stays calmly between $A$ and $B$ across the whole domain. Slide the sharpness to make the peaks (and the single-strategy spikes) more extreme.</p>
 
@@ -163,7 +176,7 @@ $$f(x)=A\,p_1(x)+B\,p_2(x)\quad\Longrightarrow\quad \int_0^1 f=A+B .$$
 </figure>
 
 
-<h2>6. The payoff — and a road to zero variance</h2>
+<h2 id="6">6. The payoff — and a road to zero variance<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Run many 2-sample estimates with each method. All three are unbiased (centered on $I=A+B$), but the single strategies have heavy, noisy tails from their rare giant samples, while MIS clusters tightly. Slide the peak imbalance: as $A\to B$ the MIS term $f/(p_1+p_2)$ becomes the <em>constant</em> $A$, so its variance drops all the way to <strong>zero</strong> — the same ideal limit as importance sampling, now reached by combination.</p>
 
@@ -186,17 +199,17 @@ $$f(x)=A\,p_1(x)+B\,p_2(x)\quad\Longrightarrow\quad \int_0^1 f=A+B .$$
 </figure>
 
 
-<h2>7. The renderer’s cousins of this idea</h2>
+<h2 id="7">7. The renderer’s cousins of this idea<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <div class="callout">
 <strong>Rendering link.</strong> The path tracer applies the same “combine strategies, weight by how likely each was” logic. In <code>Shading.hlsl</code>, each opaque hit <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Shading.hlsl#L39" target="_blank" rel="noopener">selects a lobe with probability proportional to its luminance</a> (clamped to $[0.1,0.9]$) and divides the weight by that selection probability — discrete one-sample strategy selection, where the selection pdf plays the MIS-weight role. Separately it <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/Shading.hlsl#L51" target="_blank" rel="noopener">samples a light directly</a> (next-event estimation), the “sample the light” strategy from Figure 1. Full BRDF-vs-light MIS weighting is the natural next step on exactly these two strategies.
 </div>
 
 
-<h2>8. The code</h2>
+<h2 id="8">8. The code<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/09_multiple_importance_sampling.cpp" target="_blank" rel="noopener"><code>09_multiple_importance_sampling.cpp</code></a>.</p>
 
-<pre><code>// densities, target, and samplers (truncated exponentials; p2 is the mirror of p1)
+<pre class="language-cpp"><code class="language-cpp">// densities, target, and samplers (truncated exponentials; p2 is the mirror of p1)
 double Z  = 1 - exp(-a);
 double p1(x){ return a*exp(-a*x)/Z; }            // peak at 0
 double p2(x){ return a*exp(-a*(1-x))/Z; }        // peak at 1
@@ -214,7 +227,7 @@ estMIS = w1*f(x1)/p1(x1) + w2*f(x2)/p2(x2);      // = f(x1)/(p1+p2) + f(x2)/(p1+
 <p>Output (5M trials): all three means hit $5$, but MIS variance (≈ $0.24$) is about <strong>2000× below the best single strategy</strong> — $p_2$-only ≈ $480$, $p_1$-only ≈ $8000$ — and with $A=B$ it is exactly zero.</p>
 
 
-<h2>9. Takeaways</h2>
+<h2 id="9">9. Takeaways<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>One density isn’t enough</strong> for multi-feature integrands; each importance strategy explodes where it starves.</li>
 <li><strong>MIS combines strategies</strong> with partition-of-unity weights ($\sum_i w_i=1$), keeping the estimator unbiased.</li>
@@ -368,5 +381,12 @@ estMIS = w1*f(x1)/p1(x1) + w2*f(x2)/p2(x2);      // = f(x1)/(p1+p2) + f(x2)/(p1+
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

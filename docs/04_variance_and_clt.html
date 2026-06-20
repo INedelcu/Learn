@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -81,7 +94,7 @@
 </div>
 
 
-<h2>1. The estimate is a random variable</h2>
+<h2 id="1">1. The estimate is a random variable<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>We reuse the integral from <a href="03_monte_carlo_integration.html">example 03</a>: $f(x)=e^x$ on $[0,1]$, whose exact value is $I=e-1\approx1.7182818$. Writing $Y_i=f(X_i)/p(X_i)$ for each sampled term, the estimator is their average</p>
 
@@ -108,7 +121,7 @@ $$F_N=\frac1N\sum_{i=1}^N Y_i .$$
 </figure>
 
 
-<h2>2. The size of the cloud: variance falls as 1/N</h2>
+<h2 id="2">2. The size of the cloud: variance falls as 1/N<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Three facts pin down the cloud. The estimator is an average of $N$ independent copies of $Y$, so:</p>
 
@@ -126,7 +139,7 @@ $$\operatorname{SD}[F_N]=\frac{\sigma_Y}{\sqrt N}\equiv\mathrm{SE},\qquad \sigma
 </div>
 
 
-<h2>3. The standard error, and a free error bar</h2>
+<h2 id="3">3. The standard error, and a free error bar<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The catch: $\sigma_Y$ depends on $\operatorname{Var}[Y]$, which itself depends on the integral we don’t know. The fix is to <strong>estimate $\sigma_Y$ from the very same samples</strong>, using the Bessel-corrected sample variance from <a href="01_random_and_estimators.html">example 01</a>. With sample variance $s^2=\tfrac1{N-1}\sum(Y_i-F_N)^2$, the estimated standard error is</p>
 
@@ -145,7 +158,7 @@ $$\widehat{\mathrm{SE}}=\frac{s}{\sqrt N}=\sqrt{\frac{s^2}{N}} .$$
 </figure>
 
 
-<h2>4. The shape of the cloud: the Central Limit Theorem</h2>
+<h2 id="4">4. The shape of the cloud: the Central Limit Theorem<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Knowing the cloud’s center and width is not enough to make a 95% statement — for that we need its <em>shape</em>. The <strong>Central Limit Theorem</strong> supplies it: as $N$ grows, the distribution of an average approaches a <strong>Normal (Gaussian)</strong>, <em>no matter what shape the individual $Y$ has</em>. Here $Y=e^X$ is quite skewed, yet $F_N$ becomes a clean bell:</p>
 
@@ -184,7 +197,7 @@ $$F_N\;\xrightarrow{\;\text{large }N\;}\;\mathrm{Normal}\!\left(I,\ \frac{\sigma
 </figure>
 
 
-<h2>5. Confidence intervals — and what “95%” really means</h2>
+<h2 id="5">5. Confidence intervals — and what “95%” really means<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Put the width (§3) and the shape (§4) together. Since $F_N$ is approximately $\mathrm{Normal}(I,\mathrm{SE}^2)$, the interval</p>
 
@@ -197,7 +210,7 @@ $$\big[\,F_N-1.96\,\widehat{\mathrm{SE}}\;,\;\; F_N+1.96\,\widehat{\mathrm{SE}}\
 </div>
 
 
-<h2>6. Testing the theory: 100,000 estimators</h2>
+<h2 id="6">6. Testing the theory: 100,000 estimators<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Part 2 of the file is an empirical audit. It runs many independent estimators (each $K=1000$ samples), and checks two predictions at once: that the <strong>spread</strong> of all the estimates equals $\sigma_Y/\sqrt K$, and that each estimator’s self-built 95% interval <strong>covers</strong> the truth about 95% of the time. Run it below — each row is one estimator’s interval, green if it caught $I$, red if it missed; the running coverage settles on 95%.</p>
 
@@ -223,12 +236,12 @@ $$\big[\,F_N-1.96\,\widehat{\mathrm{SE}}\;,\;\; F_N+1.96\,\widehat{\mathrm{SE}}\
 </div>
 
 
-<h2>7. The code</h2>
+<h2 id="7">7. The code<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/04_variance_and_clt.cpp" target="_blank" rel="noopener"><code>04_variance_and_clt.cpp</code></a>.</p>
 
 <p>Part 1 is one Welford pass producing the estimate, its standard error, and the 95% interval together:</p>
 
-<pre><code>double mean = 0.0, m2 = 0.0; long long n = 0;
+<pre class="language-cpp"><code class="language-cpp">double mean = 0.0, m2 = 0.0; long long n = 0;
 for (long long i = 0; i &lt; 10000000; ++i) {
     double y = f(rng.NextFloat());     // Y = f(X)/p(X), p = 1 on [0,1]
     ++n;
@@ -244,7 +257,7 @@ for (long long i = 0; i &lt; 10000000; ++i) {
 
 <p>Part 2 runs <code>kNumEstimates = 100000</code> estimators of <code>kPerEstimate = 1000</code> samples each, measures the spread of the estimates, and counts coverage — then compares against the analytic prediction $\sigma_Y/\sqrt K$ using the exact $\operatorname{Var}[Y]=\tfrac{e^2-1}{2}-(e-1)^2$:</p>
 
-<pre><code>int covered = 0; double gMean = 0, gM2 = 0;           // stats OF the estimates
+<pre class="language-cpp"><code class="language-cpp">int covered = 0; double gMean = 0, gM2 = 0;           // stats OF the estimates
 for (int e = 0; e &lt; kNumEstimates; ++e) {
     double m = 0, s2 = 0;                              // one estimator (Welford)
     for (int i = 0; i &lt; kPerEstimate; ++i) {
@@ -261,7 +274,7 @@ double predSE = sqrt(((kE*kE-1)/2 - I*I) / kPerEstimate);</code></pre>
 <p>Typical output: mean of estimates $\approx I$, spread $\approx\,$predicted SE $\approx0.0156$, and coverage $\approx95\%$ — the estimator behaves exactly like the Normal the CLT promises.</p>
 
 
-<h2>8. Takeaways</h2>
+<h2 id="8">8. Takeaways<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>The estimate is random.</strong> Its sampling distribution is centered on $I$ (unbiased) with variance $\operatorname{Var}[Y]/N$.</li>
 <li><strong>$1/\sqrt N$, proved.</strong> $\operatorname{SD}[F_N]=\sigma_Y/\sqrt N$ — the standard error. This is the law <a href="02_estimating_pi.html">example 02</a> only observed; variance reduction shrinks $\sigma_Y$.</li>
@@ -491,5 +504,12 @@ double predSE = sqrt(((kE*kE-1)/2 - I*I) / kPerEstimate);</code></pre>
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

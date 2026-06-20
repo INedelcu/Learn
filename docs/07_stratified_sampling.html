@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -77,7 +90,7 @@
 </div>
 
 
-<h2>1. The problem: independent samples clump</h2>
+<h2 id="1">1. The problem: independent samples clump<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Drop $N$ independent uniform samples on $[0,1]$ and look at where they land. Some stretches get three or four; others get none. The empty stretches are regions of the integrand you simply didn’t look at this run, and the crowded ones are wasted, redundant effort — together they are the run-to-run noise. Re-roll the draw below and compare: the <span style="color:var(--plain)">plain</span> row clumps and gaps differently every time, while the <span style="color:var(--strat)">stratified</span> row always keeps one sample per cell, evenly covering the domain.</p>
 
@@ -91,7 +104,7 @@
 </figure>
 
 
-<h2>2. The fix: one jittered sample per stratum</h2>
+<h2 id="2">2. The fix: one jittered sample per stratum<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The whole change is in how the sample positions are generated:</p>
 
@@ -100,7 +113,7 @@ $$\text{plain:}\quad x_i=U_i,\qquad\qquad \text{stratified:}\quad x_i=\frac{i+U_
 <p>with $U_i\sim\mathrm{Uniform}[0,1]$ in both. The stratified formula puts cell $i$ at $[i/N,(i+1)/N)$ and jitters the sample uniformly <em>within</em> that cell. The estimate is the same average in both cases, $\hat I=\frac1N\sum_i f(x_i)$, and — crucially — stratification is still <strong>unbiased</strong>: each cell’s sample is uniform over its cell, so it correctly represents that slice. The jitter (rather than placing the sample at the cell center) is what keeps it unbiased and avoids aliasing.</p>
 
 
-<h2>3. Why it works: variance is the sum of tiny pieces</h2>
+<h2 id="3">3. Why it works: variance is the sum of tiny pieces<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Because the cells are disjoint and the samples independent, the variance of the stratified estimate is the <strong>sum of the within-stratum variances</strong>:</p>
 
@@ -117,7 +130,7 @@ $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\
 </div>
 
 
-<h2>4. The payoff: same cost, far less noise</h2>
+<h2 id="4">4. The payoff: same cost, far less noise<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The file measures it the honest way — run many independent estimates with each method and compare the spread. Below, both methods use $N$ samples per estimate; the histograms are drawn on a shared scale. Both center on the true $I$ (both unbiased), but the stratified distribution collapses to a sliver. Slide $N$ and watch the variance-reduction factor climb roughly as $N^2$.</p>
 
@@ -140,7 +153,7 @@ $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\
 </figure>
 
 
-<h2>5. Convergence: faster than 1/√N</h2>
+<h2 id="5">5. Convergence: faster than 1/√N<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Plot the RMS error against $N$ on log–log axes and the two methods separate by their <em>slope</em>: plain MC falls at slope $-\tfrac12$ (the universal $1/\sqrt N$ from <a href="02_estimating_pi.html">example 02</a>), while stratified falls at slope $\approx-\tfrac32$. That steeper line is the headline — stratification doesn’t just shift the constant (as importance sampling did), it improves the <em>rate</em> for smooth 1-D integrands.</p>
 
@@ -155,7 +168,7 @@ $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\
 </figure>
 
 
-<h2>6. The catch: the curse of dimensionality</h2>
+<h2 id="6">6. The catch: the curse of dimensionality<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>A full stratified grid in $d$ dimensions needs $N^d$ cells to keep $N$ subdivisions per axis. At $d=2$ that is fine (an image plane of pixels), but light paths are high-dimensional — many bounces, each with 2+ random numbers — and $N^d$ explodes. So renderers do <strong>not</strong> build a full grid. Instead they stratify <em>per dimension</em> (each random dimension gets its own 1-D stratification or a shuffled assignment, as in Latin hypercube sampling, example 29) or switch to <strong>low-discrepancy</strong> sequences that stay well-spread in high dimensions without a grid (examples <a href="11_low_discrepancy.html">11</a>, 16, 42).</p>
 
@@ -164,19 +177,19 @@ $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\
 </div>
 
 
-<h2>7. This is the renderer’s pixel jitter</h2>
+<h2 id="7">7. This is the renderer’s pixel jitter<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <div class="callout">
 <strong>Rendering link.</strong> The image plane <em>is</em> a 2-D stratification: each pixel is a cell, and the path tracer places one jittered sample inside it per frame rather than sampling pixel positions independently. In <code>RayGenerator.raytrace</code>, <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L25" target="_blank" rel="noopener"><code>GenerateCameraRay</code></a> offsets the ray within the pixel by a <a href="https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L32" target="_blank" rel="noopener">random sub-pixel jitter</a> — exactly the $x=(i+U)/N$ idea in 2-D, with the pixel index playing the role of the cell $i$. The same jitter applies to lens (depth of field), time (motion blur), and light samples: one well-spread sample per sub-cell beats $N$ independent darts, for free.
 </div>
 
 
-<h2>8. The code</h2>
+<h2 id="8">8. The code<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/07_stratified_sampling.cpp" target="_blank" rel="noopener"><code>07_stratified_sampling.cpp</code></a>.</p>
 
 <p>Two estimators per trial, with a Welford pass (<a href="01_random_and_estimators.html">example 01</a>) over the trials to measure each method’s variance:</p>
 
-<pre><code>const int N = 64;             // samples per estimate = number of strata
+<pre class="language-cpp"><code class="language-cpp">const int N = 64;             // samples per estimate = number of strata
 for (int t = 0; t &lt; kTrials; ++t) {
     // plain: N independent uniform draws
     double sp = 0;
@@ -199,7 +212,7 @@ printf("variance reduction factor: %.1fx\n", varPlain / varStrat);</code></pre>
 <p>Both means agree with $I\approx1.71828$ (unbiased), but the stratified variance is smaller by a large factor that grows with $N$ — visibly less noise for the same number of samples.</p>
 
 
-<h2>9. Takeaways</h2>
+<h2 id="9">9. Takeaways<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Clumps and gaps are variance.</strong> Independent samples cover the domain unevenly; stratification forces even coverage with one jittered sample per cell.</li>
 <li><strong>The recipe.</strong> $x_i=(i+U_i)/N$ instead of $x_i=U_i$. Still an average, still unbiased — the jitter keeps it so.</li>
@@ -375,5 +388,12 @@ printf("variance reduction factor: %.1fx\n", varPlain / varStrat);</code></pre>
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

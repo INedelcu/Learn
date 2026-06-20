@@ -10,6 +10,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+<style>
+  pre[class*="language-"]{border:0; border-radius:0}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
+</style>
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -81,7 +94,7 @@
 </div>
 
 
-<h2>1. The goal: an integral we can’t do by hand</h2>
+<h2 id="1">1. The goal: an integral we can’t do by hand<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>We want the definite integral of some function over an interval:</p>
 
@@ -90,7 +103,7 @@ $$I=\int_a^b f(x)\,dx .$$
 <p>For a few textbook $f$ there is a tidy antiderivative. For most real integrands — and for the light-transport integrals later in this series — there is none. Monte Carlo sidesteps the antiderivative entirely: it only ever <strong>evaluates</strong> $f$ at points.</p>
 
 
-<h2>2. The estimator: domain width × average height</h2>
+<h2 id="2">2. The estimator: domain width × average height<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Draw $N$ points uniformly on $[a,b]$ and form</p>
 
@@ -122,7 +135,7 @@ $$\hat I_N=(b-a)\cdot\frac1N\sum_{i=1}^N f(X_i),\qquad X_i\sim\mathrm{Uniform}[a
 </figure>
 
 
-<h2>3. Why it works — the $f/p$ identity</h2>
+<h2 id="3">3. Why it works — the $f/p$ identity<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The estimator above is one case of a deeper formula. The trick is to write the average not of $f$ but of the ratio $f/p$, where $p$ is the density the samples are drawn from. The uniform density on $[a,b]$ is</p>
 
@@ -143,7 +156,7 @@ $$\mathbb E\!\left[\frac{f(X)}{p(X)}\right]=\int_a^b\frac{f(x)}{p(x)}\,p(x)\,dx=
 <p>Because it is an average of $N$ i.i.d. terms, everything from example <a href="01_random_and_estimators.html">01</a> and <a href="02_estimating_pi.html">02</a> carries over: the Law of Large Numbers makes it converge, and its error falls as $1/\sqrt N$ (more in §6). The variance of that average — how noisy the estimate is — depends on how much the ratio $f/p$ varies from sample to sample, which is the hook for the next idea.</p>
 
 
-<h2>4. Any density works — and that freedom is the whole game</h2>
+<h2 id="4">4. Any density works — and that freedom is the whole game<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The identity in §3 used <em>no</em> special property of the uniform density. It holds for any $p(x)$ that is nonzero everywhere $f$ is nonzero (otherwise you would divide by zero in a region that contributes to $I$). This file uses the simplest $p$ — uniform — but the freedom to choose $p$ is what later examples exploit:</p>
 
@@ -171,7 +184,7 @@ $$\mathbb E\!\left[\frac{f(X)}{p(X)}\right]=\int_a^b\frac{f(x)}{p(x)}\,p(x)\,dx=
 </figure>
 
 
-<h2>5. Two test integrals you can throw darts at</h2>
+<h2 id="5">5. Two test integrals you can throw darts at<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The file integrates two functions with known answers, so the estimate can be checked:</p>
 
@@ -203,7 +216,7 @@ $$\int_0^1 e^x\,dx=e-1\approx1.7182818,\qquad\qquad\int_0^\pi \sin x\,dx=2 .$$
 </figure>
 
 
-<h2>6. Convergence: the same 1/√N as everything else</h2>
+<h2 id="6">6. Convergence: the same 1/√N as everything else<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Because the estimator is a sample mean, its error obeys the law from <a href="02_estimating_pi.html">example 02</a>: absolute error $\propto1/\sqrt N$, a straight line of slope $-\tfrac12$ on log–log axes. Both integrands follow it; only the constant out front differs (it is set by the variance of $f/p$, i.e. by how much each integrand wiggles).</p>
 
@@ -218,7 +231,7 @@ $$\int_0^1 e^x\,dx=e-1\approx1.7182818,\qquad\qquad\int_0^\pi \sin x\,dx=2 .$$
 </figure>
 
 
-<h2>7. The same formula <em>is</em> the rendering equation</h2>
+<h2 id="7">7. The same formula <em>is</em> the rendering equation<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>This is not just an analogy. The outgoing radiance at a surface point is a hemispherical integral, and a path tracer estimates it with exactly the $f/p$ formula from §3 — sampling directions $\omega_i$ from some density $p(\omega)$ and averaging the integrand over $p$:</p>
 
@@ -251,12 +264,12 @@ $$L_o(\omega_o)=\int_{\mathcal H^2} f_r(\omega_o,\omega_i)\,L_i(\omega_i)\,\cos\
 </figure>
 
 
-<h2>8. The code</h2>
+<h2 id="8">8. The code<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/03_monte_carlo_integration.cpp" target="_blank" rel="noopener"><code>03_monte_carlo_integration.cpp</code></a>.</p>
 
 <p>The helper is the estimator verbatim. Note the comment on line 48: dividing by the uniform density $p=1/(b-a)$ is the same as multiplying by $(b-a)$, so the $/p$ is “folded into” the trailing $(b-a)$ factor rather than written out.</p>
 
-<pre><code>// estimate the integral of f over [a,b] with N uniform samples
+<pre class="language-cpp"><code class="language-cpp">// estimate the integral of f over [a,b] with N uniform samples
 template &lt;typename F&gt;
 double EstimateIntegral(F f, double a, double b, long long n, Rng&amp; rng) {
     double sum = 0.0;
@@ -286,7 +299,7 @@ EstimateIntegral(gSin, 0.0, kPi, n, rng);</code></pre>
 </table>
 
 
-<h2>9. Takeaways</h2>
+<h2 id="9">9. Takeaways<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>The estimator.</strong> $\hat I_N=\frac1N\sum f(X_i)/p(X_i)$ estimates $\int f$ for samples drawn from density $p$; with uniform $p$ it is “(domain width) × (average of $f$).”</li>
 <li><strong>Why it’s unbiased.</strong> $\mathbb E[f/p]=\int (f/p)\,p\,dx=\int f$ — the sampling density cancels. True for any $p$ that is nonzero wherever $f$ is.</li>
@@ -477,5 +490,12 @@ EstimateIntegral(gSin, 0.0, kPi, n, rng);</code></pre>
 })();
 </script>
 
+<!-- Prism.js scripts: core -> clike -> c -> cpp, then toolbar (before copy) -> copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 </body>
 </html>

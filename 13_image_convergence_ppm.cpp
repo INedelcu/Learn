@@ -24,9 +24,12 @@
 //   * random RMSE falls like 1/sqrt(N) (4x the samples -> ~2x less noise), and
 //   * stratified beats random at matched sample counts — visibly smoother edges.
 //
-// The progressive frame averaging in PathTracingDemo.cs
+// The progressive frame averaging in RayGenerator.raytrace
 // (lerp(prev, new, 1/(step+1))) is the identical idea: each frame adds samples
 // to the running per-pixel mean, and the image denoises as 1/sqrt(total samples).
+// See https://github.com/INedelcu/PathTracingDemo/blob/main/Assets/Shaders/RayGenerator.raytrace#L108
+// (PathTracingDemo.cs owns the accumulation buffer and convergence-step counter;
+//  the lerp blend itself is in the ray-gen shader).
 //
 // Output: PPM files in .\images\ . PPM is the simplest image format there is
 // (a tiny text header + raw RGB bytes); most image viewers, IrfanView, GIMP,

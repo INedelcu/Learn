@@ -10,6 +10,10 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
 
+<!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+
 <style>
   :root{
     --ink:#1f2430; --muted:#5b6472; --line:#e1e4ea; --bg:#ffffff; --card:#f7f8fb;
@@ -23,12 +27,20 @@
   h1{font-size:30px; line-height:1.2; margin:0 0 6px}
   h2{font-size:22px; margin:46px 0 12px; padding-top:14px; border-top:1px solid var(--line)}
   h3{font-size:17px; margin:26px 0 8px}
+  h2[id]{scroll-margin-top:18px}
+  .hlink{margin-left:.4em; color:#bcc3ce; text-decoration:none; vertical-align:middle; display:inline-block; line-height:0}
+  h2:hover .hlink{color:#2b6cb0}
+  .hlink:hover{color:#2b6cb0}
   p{margin:12px 0}
   .sub{color:var(--muted); font-size:15px; margin-top:0}
   a{color:#2b6cb0}
-  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
-  pre{background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
-  pre code{background:none; padding:0}
+  code:not([class*="language-"]){font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13.5px; background:var(--codebg); padding:1px 5px; border-radius:4px}
+  pre:not([class*="language-"]){background:var(--codebg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  pre:not([class*="language-"]) code{background:none; padding:0}
+  /* Prism copy button (toolbar) styled to match the page, always visible */
+  div.code-toolbar > .toolbar{opacity:1}
+  div.code-toolbar > .toolbar > .toolbar-item > button{font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; cursor:pointer; box-shadow:none}
+  div.code-toolbar > .toolbar > .toolbar-item > button:hover{background:var(--card); color:var(--ink)}
   .lead{font-size:17px}
   .callout{background:var(--card); border:1px solid var(--line); border-left:3px solid #2b6cb0; border-radius:8px; padding:12px 16px; margin:18px 0}
   .callout.key{border-left-color:var(--true)}
@@ -83,7 +95,7 @@
 </div>
 
 
-<h2>1. Three words: random variable, expectation, variance</h2>
+<h2 id="1">1. Three words: random variable, expectation, variance<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>A <strong>random variable</strong> $X$ is just &ldquo;a number produced by a random process.&rdquo; In this example $X$ is a uniform draw in $[0,1)$, written $X\sim\mathrm{Uniform}[0,1)$. Two summary numbers describe it.</p>
 
@@ -126,7 +138,7 @@ $$\operatorname{Var}[X]=\int_0^1\Big(x-\tfrac12\Big)^2 dx=\frac1{12}\approx 0.08
 </div>
 
 
-<h2>2. Seeing that the draws are uniform — the histogram</h2>
+<h2 id="2">2. Seeing that the draws are uniform — the histogram<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Before trusting an estimator, sanity-check the source. Drop $100{,}000$ draws into ten equal-width bins. If the generator is genuinely uniform, each bin should hold about $10\%$ of the samples. The deviations from $10\%$ shrink as you add more samples — that is the Law of Large Numbers acting on each bin at once.</p>
 
@@ -142,7 +154,7 @@ $$\operatorname{Var}[X]=\int_0^1\Big(x-\tfrac12\Big)^2 dx=\frac1{12}\approx 0.08
 </figure>
 
 
-<h2>3. We can't average by hand either — the sample mean estimator</h2>
+<h2 id="3">3. We can't average by hand either — the sample mean estimator<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The estimator for the mean is the obvious one, the <strong>sample mean</strong> of $n$ draws:</p>
 
@@ -174,7 +186,7 @@ $$\bar x_n=\frac1n\sum_{i=1}^{n}x_i .$$
 </figure>
 
 
-<h2>4. The numerically dangerous way to get the variance</h2>
+<h2 id="4">4. The numerically dangerous way to get the variance<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>The textbook formula expands the square and is tempting because it needs only two running sums, $\sum x_i$ and $\sum x_i^2$:</p>
 
@@ -187,7 +199,7 @@ $$\operatorname{Var}\approx\frac1n\sum_{i=1}^n x_i^2-\left(\frac1n\sum_{i=1}^n x
 </div>
 
 
-<h2>5. Welford's online algorithm — the stable one-pass fix</h2>
+<h2 id="5">5. Welford's online algorithm — the stable one-pass fix<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>Welford keeps two running quantities and updates them with each new sample $x_n$ using only <em>small differences from the current mean</em>. The running mean update comes straight from algebra:</p>
 
@@ -199,7 +211,7 @@ $$M_{2,n}=M_{2,n-1}+(x_n-\bar x_{n-1})(x_n-\bar x_n)=M_{2,n-1}+\delta\,(x_n-\bar
 
 <p>The subtle part — and the line the source flags with &ldquo;<em>uses the updated mean — this is the trick</em>&rdquo; — is that the two factors use <strong>different</strong> means: the first deviation is from the <em>old</em> mean $\bar x_{n-1}$, the second from the <em>new</em> mean $\bar x_n$. That product is exactly what makes the recurrence telescope to the true $\sum(x_i-\bar x_n)^2$ without ever storing the samples or a giant sum of squares.</p>
 
-<pre><code>double mean = 0.0, m2 = 0.0;
+<pre class="language-cpp"><code class="language-cpp">double mean = 0.0, m2 = 0.0;
 long long n = 0;
 for (long long i = 0; i &lt; kTotal; ++i) {
     double x = rng.NextFloat();
@@ -237,7 +249,7 @@ double variance = m2 / (n - 1); // Bessel-corrected (see §6)</code></pre>
 </figure>
 
 
-<h2>6. Bessel's correction — why divide by $n-1$, not $n$</h2>
+<h2 id="6">6. Bessel's correction — why divide by $n-1$, not $n$<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <p>You might expect the variance estimate to be $M_2/n$ — after all, variance is the <em>average</em> squared deviation. But dividing by $n$ produces an estimate that is, on average, <strong>too small</strong>. The fix is to divide by $n-1$ instead; this is <strong>Bessel's correction</strong>, and the result is the <strong>unbiased</strong> sample variance, usually written $s^2$:</p>
 
@@ -272,12 +284,12 @@ So the divide-by-$n$ estimate undershoots the true variance $\sigma^2$ by the fa
 </div>
 
 
-<h2>7. The program, end to end</h2>
+<h2 id="7">7. The program, end to end<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/01_random_and_estimators.cpp" target="_blank" rel="noopener"><code>01_random_and_estimators.cpp</code></a>.</p>
 
 <p>Stripped to its spine, the file is: a histogram pass to verify uniformity, then a Welford pass that reports the running mean and Bessel-corrected variance at each decade.</p>
 
-<pre><code>Rng rng(/*sequence=*/1);
+<pre class="language-cpp"><code class="language-cpp">Rng rng(/*sequence=*/1);
 
 // (1) histogram: 100k draws into 10 bins — each should hold ~10%
 int hist[10] = {0};
@@ -303,7 +315,7 @@ for (long long i = 0; i &lt; 10000000; ++i) {
 <p>The mean homes in on $0.5$ and the variance on $0.08333$, each extra factor of ten in samples buying roughly one more correct digit. That $\sqrt n$ relationship between sample count and accuracy is the thread picked up next.</p>
 
 
-<h2>8. Takeaways</h2>
+<h2 id="8">8. Takeaways<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Expectation and variance</strong> are the two numbers that summarize a random variable: where it sits and how far it spreads. For $\mathrm{Uniform}[0,1)$ they are $1/2$ and $1/12$.</li>
 <li><strong>Monte Carlo estimates the expectation by averaging samples;</strong> the Law of Large Numbers says the sample mean converges to the truth.</li>
@@ -499,6 +511,14 @@ for (long long i = 0; i &lt; 10000000; ++i) {
   })();
 })();
 </script>
+
+<!-- Prism.js scripts: core → clike → c → cpp, then toolbar (before copy) → copy-to-clipboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 
 </body>
 </html>
