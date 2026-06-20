@@ -131,6 +131,105 @@ The whole series is, ultimately, about one formula — estimating an integral as
     </span>
   </a>
 
+  <a class="entry" href="09_multiple_importance_sampling.html">
+    <span class="num">09</span>
+    <span class="body">
+      <h3>Multiple Importance Sampling (MIS)</h3>
+      <p class="d">When no single density fits the whole integrand, combine several with the balance heuristic $w_i=p_i/\sum_j p_j$. Each term collapses to the bounded $f/\sum_j p_j$, muzzling the spikes — unbiased, never much worse than the best strategy, ~2000× lower variance here, and zero when the features balance. It's the BRDF-vs-light combination of real path tracers.</p>
+      <span class="tags"><span class="tag">balance heuristic</span><span class="tag">BRDF vs light</span><span class="tag">Veach &amp; Guibas</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="10_russian_roulette.html">
+    <span class="num">10</span>
+    <span class="body">
+      <h3>Russian roulette</h3>
+      <p class="d">Terminate an infinite bounce sum after a random, finite number of steps without bias: continue with probability $q$, divide the weight by $q$ on survival. Fixed truncation is always too dark; roulette stays unbiased for any $q$ (expected length $1/(1-q)$). Choosing $q=\rho$ keeps the weight bounded — the renderer's throughput-driven termination.</p>
+      <span class="tags"><span class="tag">unbiased termination</span><span class="tag">throughput</span><span class="tag">variance vs cost</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="11_low_discrepancy.html">
+    <span class="num">11</span>
+    <span class="body">
+      <h3>Low-discrepancy sequences (QMC)</h3>
+      <p class="d">Drop randomness for a deterministic sequence that fills space evenly at every prefix length. The van der Corput radical inverse and the Halton sequence (coprime prime bases per dimension) keep discrepancy near $1/N$, so by Koksma–Hlawka the error falls nearly as $1/N$ instead of $1/\sqrt N$ — almost squaring the accuracy. The basis of pbrt's Halton/Sobol samplers.</p>
+      <span class="tags"><span class="tag">quasi-Monte Carlo</span><span class="tag">Halton / van der Corput</span><span class="tag">discrepancy</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="12_gaussian_box_muller.html">
+    <span class="num">12</span>
+    <span class="body">
+      <h3>Sampling the normal (Box–Muller)</h3>
+      <p class="d">The Gaussian's CDF has no elementary inverse, so inversion fails. Box–Muller works in 2-D: a pair of independent normals is rotationally symmetric, so its angle is uniform and squared radius Exponential — sample those from two uniforms ($R=\sqrt{-2\ln U_1}$, $\theta=2\pi U_2$) and convert back. Verified by the histogram, the moments, and the 68–95–99.7 rule.</p>
+      <span class="tags"><span class="tag">normal distribution</span><span class="tag">Box–Muller</span><span class="tag">68–95–99.7</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="13_image_convergence_ppm.html">
+    <span class="num">13</span>
+    <span class="body">
+      <h3>Seeing the noise: image-space convergence</h3>
+      <p class="d">The capstone — a pixel's color is a Monte Carlo integral over its area, so render speckle <em>is</em> estimator variance, living wherever the image jumps (edges). A live in-browser renderer lets you watch the noise melt as $1/\sqrt N$ (random) vs faster for stratified, with an error map showing the noise sits only on edges. It's the renderer's per-frame progressive averaging.</p>
+      <span class="tags"><span class="tag">antialiasing integral</span><span class="tag">edge noise</span><span class="tag">progressive averaging</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="14_tabulated_cdf_sampling.html">
+    <span class="num">14</span>
+    <span class="body">
+      <h3>Sampling tabulated distributions (build &amp; invert a CDF)</h3>
+      <p class="d">The distributions a renderer most wants to sample — HDR environment-map luminance, light powers, measured BRDFs — have no formula, only a table. Normalize it, prefix-sum it into a CDF, and binary-search for $F_i\le u&lt;F_{i+1}$: exactly one branch-coherent step per sample (unlike rejection's variable tries), returning either an interpolated position or just an index. The machinery behind environment-map importance sampling and light selection.</p>
+      <span class="tags"><span class="tag">tabulated pdf</span><span class="tag">CDF inversion</span><span class="tag">light selection</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="15_env_map_2d_sampling.html">
+    <span class="num">15</span>
+    <span class="body">
+      <h3>Importance-sampling a 2D environment map</h3>
+      <p class="d">Lift the 1D table sampler to a 2D map by factoring the joint texel density $p(u,v)=p(v)\,p(u\mid v)$: one marginal CDF over rows, one conditional CDF per row (pbrt's Distribution2D). Two binary searches — pick a row, then a column — give one exact 2D sample, so shadow and bounce rays land on the bright sun instead of the dim sky. Verified against the joint histogram and shown cutting integral variance ~3.5×.</p>
+      <span class="tags"><span class="tag">Distribution2D</span><span class="tag">marginal &amp; conditional</span><span class="tag">environment lighting</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="16_sampling_patterns_2d.html">
+    <span class="num">16</span>
+    <span class="body">
+      <h3>Seeing sample patterns: random vs stratified vs Halton</h3>
+      <p class="d">The visual companion to examples 07 and 11: scatter 256 points three ways and watch the difference. Independent random points clump and leave ~37% of grid cells empty; stratified guarantees one per cell; Halton stays globally even. The pictures line up with the error table — random falls as $1/\sqrt N$ while stratified and Halton converge close to $1/N$ — and explain why high-dimensional path samples want low-discrepancy sequences, not an impossible $N^d$ stratified grid.</p>
+      <span class="tags"><span class="tag">stratification</span><span class="tag">low-discrepancy</span><span class="tag">curse of dimensionality</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="17_adaptive_sampling.html">
+    <span class="num">17</span>
+    <span class="body">
+      <h3>Adaptive sampling: spend samples where the variance is</h3>
+      <p class="d">Noise isn't spread evenly across an image, so samples shouldn't be either. Minimizing total error $\sum_i \sigma_i^2/n_i$ under a fixed budget gives the Neyman allocation $n_i\propto\sigma_i$: a cheap pilot pass estimates each pixel's standard deviation, then the rest of the budget pours into the noisy edge pixels (up to 4378 spp here) while flat interiors keep only a floor. Same ray count, 3.7× lower RMS error — with an interactive allocation toy and a live uniform-vs-adaptive render.</p>
+      <span class="tags"><span class="tag">Neyman allocation</span><span class="tag">pilot pass</span><span class="tag">variance-driven</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="18_resampled_importance_sampling.html">
+    <span class="num">18</span>
+    <span class="body">
+      <h3>Resampled Importance Sampling &amp; reservoirs (ReSTIR)</h3>
+      <p class="d">Importance-sample a target you can only <em>evaluate</em>, never invert — the real rendering integrand $f=\text{BRDF}\cdot L\cdot V\cdot\cos\theta$. Draw $M$ cheap candidates, weight each by the target $\hat p$, keep one survivor: unbiased at every $M$, converging to ideal importance sampling as $M$ grows. Its $O(1)$ streaming form, the weighted reservoir, is what ReSTIR reuses across neighbor pixels and frames to gather hundreds of effective samples from a few traced rays.</p>
+      <span class="tags"><span class="tag">RIS</span><span class="tag">weighted reservoir</span><span class="tag">ReSTIR</span></span>
+    </span>
+  </a>
+
+  <a class="entry" href="19_ggx_vndf_sampling.html">
+    <span class="num">19</span>
+    <span class="body">
+      <h3>Importance-sampling a glossy BRDF: GGX VNDF</h3>
+      <p class="d">The series' destination — the renderer's real specular sampler. The GGX microfacet lobe is sharp and view-dependent, so uniform hemisphere sampling almost never finds it. Heitz-2018 visible-normal sampling draws a half-vector from the normals visible to the viewer and reflects, after which the Monte Carlo weight collapses to the bounded $F\,G_2/G_1$. Validated against a quadrature reference to ~3 digits and hundreds-to-thousands of times less noisy than uniform — the very <code>SampleSpecularGGX</code> a path tracer fires for every glossy highlight.</p>
+      <span class="tags"><span class="tag">GGX / microfacet</span><span class="tag">VNDF (Heitz 2018)</span><span class="tag">specular sampling</span></span>
+    </span>
+  </a>
+
 </div>
 
 <p class="foot">Math rendered with KaTeX; figures are self-contained SVG + JavaScript, no build step. More explainers added as the series progresses.</p>
