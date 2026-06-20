@@ -104,9 +104,13 @@
 
 $$\mathbb E[X]=\int_0^1 x\,\underbrace{1}_{\text{density}}\,dx=\Big[\tfrac{x^2}{2}\Big]_0^1=\tfrac12 .$$
 
-<p>The <strong>variance</strong> $\operatorname{Var}[X]=\mathbb E\big[(X-\mathbb E[X])^2\big]$ measures the average squared distance from the mean — how &ldquo;spread out&rdquo; $X$ is:</p>
+<p>The <strong>variance</strong> $\operatorname{Var}[X]=\mathbb E\big[(X-\mathbb E[X])^2\big]$ measures the average squared distance from the mean — how &ldquo;spread out&rdquo; $X$ is. Integrate the squared deviation directly:</p>
 
-$$\operatorname{Var}[X]=\int_0^1\Big(x-\tfrac12\Big)^2 dx=\frac1{12}\approx 0.08333 .$$
+$$\operatorname{Var}[X]=\int_0^1\Big(x-\tfrac12\Big)^2 dx=\left[\frac{(x-\tfrac12)^3}{3}\right]_0^1=\frac{(\tfrac12)^3-(-\tfrac12)^3}{3}=\frac{\tfrac18+\tfrac18}{3}=\frac1{12}.$$
+
+<p>Or reach it through the often-handier identity $\operatorname{Var}[X]=\mathbb E[X^2]-\mathbb E[X]^2$ (the one §4 leans on), with $\mathbb E[X^2]=\int_0^1 x^2\,dx=\tfrac13$:</p>
+
+$$\operatorname{Var}[X]=\mathbb E[X^2]-\mathbb E[X]^2=\tfrac13-\big(\tfrac12\big)^2=\tfrac13-\tfrac14=\frac1{12}\approx 0.08333 .$$
 
 <p>The square root of the variance is the <strong>standard deviation</strong> $\sigma=\sqrt{1/12}\approx0.289$, in the same units as $X$ itself.</p>
 
@@ -189,9 +193,14 @@ $$\bar x_n=\frac1n\sum_{i=1}^{n}x_i .$$
 
 <h2 id="4">4. The numerically dangerous way to get the variance<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>The textbook formula expands the square and is tempting because it needs only two running sums, $\sum x_i$ and $\sum x_i^2$:</p>
+<p>The textbook formula starts from the definition and expands the square. Using $\frac1n\sum_i x_i=\bar x$, the average squared deviation collapses to a difference of two averages:</p>
 
-$$\operatorname{Var}\approx\frac1n\sum_{i=1}^n x_i^2-\left(\frac1n\sum_{i=1}^n x_i\right)^{\!2}=\overline{x^2}-\bar x^{\,2}.$$
+$$\frac1n\sum_{i=1}^n (x_i-\bar x)^2
+  =\frac1n\sum_{i=1}^n\big(x_i^2-2\bar x\,x_i+\bar x^2\big)
+  =\overline{x^2}-2\bar x\,\bar x+\bar x^2
+  =\overline{x^2}-\bar x^{\,2}.$$
+
+<p>It is tempting because it needs only two running sums, $\sum x_i$ and $\sum x_i^2$, in a single pass.</p>
 
 <p>Algebraically fine. Numerically a trap: it computes the variance as the <em>difference of two large, nearly equal numbers</em>. When the data sit far from zero — imagine samples clustered around $10^6$ with a true spread of order $1$ — both $\overline{x^2}$ and $\bar x^{\,2}$ are around $10^{12}$, and subtracting them in floating point throws away almost all the significant digits. This is <strong>catastrophic cancellation</strong>; the result can come out as garbage or even negative.</p>
 
@@ -202,15 +211,33 @@ $$\operatorname{Var}\approx\frac1n\sum_{i=1}^n x_i^2-\left(\frac1n\sum_{i=1}^n x
 
 <h2 id="5">5. Welford's online algorithm — the stable one-pass fix<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Welford keeps two running quantities and updates them with each new sample $x_n$ using only <em>small differences from the current mean</em>. The running mean update comes straight from algebra:</p>
+<p>Welford keeps two running quantities and updates them with each new sample $x_n$ using only <em>small differences from the current mean</em>. The running mean update comes straight from algebra — peel the newest sample off the sum, rewrite the rest with the previous mean $\bar x_{n-1}=\frac{1}{n-1}\sum_{i=1}^{n-1}x_i$, then regroup to expose $\bar x_{n-1}$:</p>
 
-$$\bar x_n=\frac1n\sum_{i=1}^n x_i=\frac{(n-1)\,\bar x_{n-1}+x_n}{n}=\bar x_{n-1}+\frac{x_n-\bar x_{n-1}}{n}.$$
+$$\begin{aligned}
+\bar x_n=\frac1n\sum_{i=1}^n x_i
+  &=\frac1n\Big(\sum_{i=1}^{n-1}x_i+x_n\Big)
+   =\frac1n\big((n-1)\,\bar x_{n-1}+x_n\big)\\
+  &=\frac{n\,\bar x_{n-1}-\bar x_{n-1}+x_n}{n}
+   =\bar x_{n-1}+\frac{x_n-\bar x_{n-1}}{n}.
+\end{aligned}$$
 
 <p>So defining the deviation-from-the-old-mean $\delta=x_n-\bar x_{n-1}$, the mean inches over by $\delta/n$. The second quantity is $M_2=\sum_{i=1}^n (x_i-\bar x_n)^2$, the sum of squared deviations, and it has its own exact recurrence:</p>
 
 $$M_{2,n}=M_{2,n-1}+(x_n-\bar x_{n-1})(x_n-\bar x_n)=M_{2,n-1}+\delta\,(x_n-\bar x_n).$$
 
 <p>The subtle part — and the line the source flags with &ldquo;<em>uses the updated mean — this is the trick</em>&rdquo; — is that the two factors use <strong>different</strong> means: the first deviation is from the <em>old</em> mean $\bar x_{n-1}$, the second from the <em>new</em> mean $\bar x_n$. That product is exactly what makes the recurrence telescope to the true $\sum(x_i-\bar x_n)^2$ without ever storing the samples or a giant sum of squares.</p>
+
+<div class="callout">
+<strong>Why that recurrence is exact.</strong> Write $\delta=x_n-\bar x_{n-1}$, so $\bar x_n=\bar x_{n-1}+\delta/n$ and the new point's deviation is $x_n-\bar x_n=\delta-\frac{\delta}{n}=\frac{(n-1)\delta}{n}$. Each earlier point shifts by the same small amount, $x_i-\bar x_n=(x_i-\bar x_{n-1})-\frac{\delta}{n}$ for $i&lt;n$. Substituting into $M_{2,n}=\sum_{i=1}^{n}(x_i-\bar x_n)^2$, the cross-term vanishes because deviations sum to zero about their own mean, $\sum_{i&lt;n}(x_i-\bar x_{n-1})=0$:
+$$\begin{aligned}
+M_{2,n}-M_{2,n-1}
+  &=\underbrace{(n-1)\tfrac{\delta^2}{n^2}}_{\text{from the }i&lt;n\text{ terms}}
+   +\underbrace{\tfrac{(n-1)^2\delta^2}{n^2}}_{\text{from the new point}}
+   =\frac{(n-1)\,\delta^2}{n}\\
+  &=\delta\cdot\frac{(n-1)\delta}{n}=\delta\,(x_n-\bar x_n).
+\end{aligned}$$
+So the whole change in $M_2$ collapses to the single cheap product $\delta\,(x_n-\bar x_n)$ — the old-mean deviation times the new-mean deviation.
+</div>
 
 <pre class="language-cpp"><code class="language-cpp">double mean = 0.0, m2 = 0.0;
 long long n = 0;
@@ -259,9 +286,11 @@ $$s^2=\frac{1}{n-1}\sum_{i=1}^n (x_i-\bar x_n)^2=\frac{M_2}{n-1}.$$
 <p>Here is the intuition. We measure each deviation from the <strong>sample</strong> mean $\bar x_n$, not the true mean $\mu$ — because $\mu$ is exactly the unknown we are estimating. But $\bar x_n$ is the one number that <em>minimizes</em> $\sum_i (x_i-c)^2$ over all choices of $c$. The sample mean is fitted to <em>these very samples</em>, so deviations measured from it are systematically a little smaller than deviations from the true $\mu$ would have been. The sample always looks slightly tighter than the population really is.</p>
 
 <div class="callout">
-<strong>The exact size of the bias.</strong> One can show
-$\;\mathbb E\!\left[\tfrac1n\sum_i (x_i-\bar x_n)^2\right]=\dfrac{n-1}{n}\,\sigma^2.$
-So the divide-by-$n$ estimate undershoots the true variance $\sigma^2$ by the factor $\tfrac{n-1}{n}$. Dividing by $n-1$ instead of $n$ cancels that factor exactly, giving $\mathbb E[s^2]=\sigma^2$. A common way to phrase it: estimating the mean from the data &ldquo;uses up&rdquo; one <em>degree of freedom</em>, leaving $n-1$ independent deviations.
+<strong>The exact size of the bias.</strong> Measure the deviations around the <em>true</em> mean $\mu$ using the identity $\sum_i (x_i-\bar x_n)^2=\sum_i (x_i-\mu)^2-n(\bar x_n-\mu)^2$ (expand $(x_i-\bar x_n)=(x_i-\mu)-(\bar x_n-\mu)$; the cross-term sums to $-n(\bar x_n-\mu)^2$). Now take expectations: each $\mathbb E[(x_i-\mu)^2]=\sigma^2$, and the last term is the variance of the sample mean, $\mathbb E[(\bar x_n-\mu)^2]=\operatorname{Var}[\bar x_n]=\sigma^2/n$, so
+$$\mathbb E\!\left[\tfrac1n\sum_{i=1}^n (x_i-\bar x_n)^2\right]
+  =\frac1n\Big(n\,\sigma^2-n\cdot\tfrac{\sigma^2}{n}\Big)
+  =\frac{n-1}{n}\,\sigma^2.$$
+So the divide-by-$n$ estimate undershoots the true variance $\sigma^2$ by exactly $\tfrac{n-1}{n}$; dividing by $n-1$ cancels that factor, giving $\mathbb E[s^2]=\sigma^2$. A common way to phrase it: estimating the mean from the data &ldquo;uses up&rdquo; one <em>degree of freedom</em>, leaving $n-1$ independent deviations. <span class="small">(The $\operatorname{Var}[\bar x_n]=\sigma^2/n$ step is itself derived in <a href="04_variance_and_clt.html">example 04</a>.)</span>
 </div>
 
 <p>The correction matters most when $n$ is small. At $n=2$ the divide-by-$n$ estimate is too low by half; by $n=1000$ the factor is $0.999$ and nobody cares. Slide $n$ below and watch the divide-by-$n$ estimate (red) sit consistently under the true line while the Bessel-corrected one (purple) lands on it. Each bar is the <em>average</em> over thousands of independent samples, so what you are seeing is the bias, not random noise.</p>
