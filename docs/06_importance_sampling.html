@@ -136,16 +136,20 @@ $$I=\int f(x)\,dx=\mathbb E_{X\sim p}\!\left[\frac{f(X)}{p(X)}\right].$$
 
 <ol>
 <li><strong>Uniform:</strong> $p(x)=1$, so the per-sample value is just $e^X$.</li>
-<li><strong>Importance:</strong> $p(x)=\tfrac23(1+x)$ — a straight line that leans the same way $e^x$ does. It is easy to sample by inversion (<a href="05_sampling_distributions.html">example 05</a>): its CDF is $P(x)=\tfrac{x+x^2/2}{3/2}$, and solving $P(X)=U$ gives</li>
+<li><strong>Importance:</strong> $p(x)=\tfrac23(1+x)$ — a straight line that leans the same way $e^x$ does. It is easy to sample by inversion (<a href="05_sampling_distributions.html">example 05</a>): its CDF is $P(x)=\tfrac{x+x^2/2}{3/2}$, so $P(X)=U$ becomes $X^2+2X-3U=0$, whose positive root is</li>
 </ol>
 
 $$X=-1+\sqrt{1+3U}.$$
 
-<p>The per-sample variances come out to roughly</p>
+<p>The uniform variance is exactly computable — it is $\operatorname{Var}[e^X]$ for $X\sim\mathrm{Uniform}[0,1]$, the same quantity worked out in <a href="04_variance_and_clt.html">example 04</a>:</p>
 
-$$\operatorname{Var}_{\text{uniform}}\approx0.242,\qquad \operatorname{Var}_{\text{importance}}\approx0.027,$$
+$$\operatorname{Var}_{\text{uniform}}=\mathbb E[e^{2X}]-\mathbb E[e^X]^2=\int_0^1 e^{2x}\,dx-(e-1)^2=\frac{e^2-1}{2}-(e-1)^2\approx0.2420.$$
 
-<p>about a <strong>9× reduction</strong> from one crude linear density. Since the standard error is $\sqrt{\operatorname{Var}/N}$, that is $\sqrt9\approx3\times$ lower noise for the same $N$ — equivalently, uniform would need ~9× as many samples to match the accuracy.</p>
+<p>The importance variance uses $\operatorname{Var}[f/p]=\mathbb E_p\!\big[(f/p)^2\big]-I^2=\int_0^1\frac{f(x)^2}{p(x)}\,dx-I^2=\tfrac32\!\int_0^1\frac{e^{2x}}{1+x}\,dx-(e-1)^2$; this integral has no elementary closed form but evaluates to $\approx0.0269$. The ratio is the headline:</p>
+
+$$\frac{\operatorname{Var}_{\text{uniform}}}{\operatorname{Var}_{\text{importance}}}\approx\frac{0.2420}{0.0269}\approx9.0,$$
+
+<p>about a <strong>9× reduction</strong> from one crude linear density. Since the standard error is $\sqrt{\operatorname{Var}/N}$, that is $\sqrt9\approx3\times$ lower noise for the same $N$ — equivalently, uniform would need ~9× as many samples to match the accuracy. The program confirms it: measured per-sample variances $0.24208$ and $0.02690$, ratio $9.00\times$, with both estimates landing on $1.71828$.</p>
 
 <p>See it as noise. Below, many independent estimates (each $K$ samples) are histogrammed for both methods. Both bells sit on the true $I$ (still unbiased!), but the importance histogram is far narrower — that width difference <em>is</em> the variance reduction.</p>
 

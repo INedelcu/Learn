@@ -111,6 +111,12 @@ $$\boxed{\,U\sim\mathrm{Uniform}[0,1]\ \Longrightarrow\ X=P^{-1}(U)\ \text{has d
 
 <p><strong>Why.</strong> $P(x)$ is exactly “the fraction of mass at or below $x$.” Picking $U$ uniformly chooses a mass fraction at random; $P^{-1}$ then asks “which $x$ has that much mass below it?” Where $p$ is large the CDF climbs steeply, so a wide band of $U$ values funnels into a narrow band of $x$ — landing more samples there, exactly as $p$ demands.</p>
 
+<p>That intuition is a one-line proof. Since $P$ is increasing, the event $X\le x$ is the same as $P^{-1}(U)\le x$, i.e. $U\le P(x)$; and for a uniform $U$, $\Pr[U\le u]=u$. So the CDF of $X$ is</p>
+
+$$\Pr[X\le x]=\Pr[\,U\le P(x)\,]=P(x),$$
+
+<p>which means $X$ has CDF $P$, hence density $p=P'$ — exactly the target, from a single uniform draw.</p>
+
 <figure>
 <svg id="inv" viewBox="0 0 600 380" role="img" aria-label="Top: the CDF with a uniform pick on the vertical axis mapped to a sample on the horizontal axis. Bottom: a histogram of the resulting samples matching the density."></svg>
 <div class="ctl">
@@ -136,8 +142,9 @@ $$X=\sqrt{U}.$$
 <p>Larger $U$ stretches toward $1$ under the square root’s flattening — piling samples toward the right, where $p=2x$ is largest. (Try the <code>p(x)=2x</code> button above.)</p>
 
 <h3>Worked example B — the exponential, $p(t)=\lambda e^{-\lambda t}$ on $[0,\infty)$</h3>
-<p>The CDF is $P(t)=1-e^{-\lambda t}$, which inverts to</p>
-$$T=-\frac{\ln(1-U)}{\lambda}.$$
+<p>The CDF is $P(t)=\int_0^t\lambda e^{-\lambda s}\,ds=1-e^{-\lambda t}$. Set it equal to $U$ and solve for $t$:</p>
+$$U=1-e^{-\lambda t}\;\Longrightarrow\;e^{-\lambda t}=1-U\;\Longrightarrow\;T=-\frac{\ln(1-U)}{\lambda}.$$
+<p>(Because $1-U$ is uniform too, the renderer often writes the cheaper $-\ln(U)/\lambda$.)</p>
 <p>Its mean is $1/\lambda$. This one is everywhere in rendering: it samples the <strong>free-flight distance</strong> a photon travels before scattering or being absorbed in a participating medium — the Beer–Lambert law, with $\lambda$ the extinction coefficient.</p>
 
 <div class="callout">
@@ -152,6 +159,12 @@ $$T=-\frac{\ln(1-U)}{\lambda}.$$
 $$p(x)\le M\,q(x)\quad\text{for all }x.$$
 
 <p>The recipe: draw a candidate $x$ from $q$, then <strong>accept</strong> it with probability $p(x)/(M\,q(x))$; otherwise discard and try again. Accepted samples follow $p$ exactly. Geometrically, with $q$ uniform it is pure darts: scatter points uniformly under the bounding box of height $M$, keep the ones that fall under the curve $p$.</p>
+
+<p><strong>Why it works</strong> — two short calculations. The probability that a given round accepts is the average acceptance probability over candidates drawn from $q$:</p>
+
+$$\Pr[\text{accept}]=\int q(x)\,\frac{p(x)}{M\,q(x)}\,dx=\frac1M\int p(x)\,dx=\frac1M.$$
+
+<p>So $M$ candidates are tried per accepted sample, on average. And the density of an accepted $x$ is proportional to (proposed) × (accepted) $=q(x)\cdot\dfrac{p(x)}{M\,q(x)}=\dfrac{p(x)}{M}$; normalizing — dividing by that $1/M$ — leaves exactly $p(x)$. The survivors are distributed as $p$, and the acceptance rate is $1/M$.</p>
 
 <div class="callout warn">
 <strong>The cost.</strong> Only a fraction $1/M$ of candidates are accepted (the area under $p$ divided by the box area). A loose bound $M$ means most darts are thrown away. That waste is precisely why renderers prefer inversion / importance sampling whenever a closed form exists — and why <a href="06_importance_sampling.html">example 06</a> is about choosing good densities rather than brute-forcing them.</p>
@@ -222,7 +235,7 @@ while (got &lt; kN) {
 }
 // acceptance rate = kN / tries  ->  ~1/3</code></pre>
 
-<p>The reported acceptance rate lands near $1/3$, the exponential’s sample mean near $1/\lambda$, and every measured histogram bar tracks its predicted density — the samplers are correct.</p>
+<p>The actual run confirms all three samplers: the rejection acceptance rate is $0.333$ (theory $1/M=0.333$), the exponential's sample mean is $0.66655$ (theory $1/\lambda=0.66667$ at $\lambda=1.5$), and every histogram bar matches its predicted density to within sampling noise — e.g. for $p=2x$ the top bin reads $1.8974$ against the predicted $1.9000$, and for $p=3x^2$, $2.7059$ against $2.7150$.</p>
 
 
 <h2 id="7">7. Takeaways<a class="hlink" href="#7" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>

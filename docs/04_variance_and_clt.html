@@ -190,7 +190,9 @@ $$F_N\;\xrightarrow{\;\text{large }N\;}\;\mathrm{Normal}\!\left(I,\ \frac{\sigma
 </figure>
 
 <h3>Why 1.96?</h3>
-<p>A Normal places a fixed fraction of its mass within a given number of standard deviations of its center — the “68–95–99.7” rule. Exactly 95% lies within $\pm1.96\sigma$, which is where the magic number comes from.</p>
+<p>A Normal places a fixed fraction of its mass within a given number of standard deviations of its center — the “68–95–99.7” rule. For a standard Normal $Z$, the mass within $\pm z$ of the center is $\Pr[-z\le Z\le z]=2\Phi(z)-1$, where $\Phi$ is the Normal CDF. The magic number is whatever $z$ makes this $0.95$: it is $1.96$, the $97.5$th percentile, leaving $2.5\%$ of the mass in each tail.</p>
+
+$$\Pr[-1.96\le Z\le1.96]=2\Phi(1.96)-1\approx0.9500.$$
 
 <figure>
 <svg id="bell" viewBox="0 0 600 210" role="img" aria-label="A Normal curve with the central 95 percent between minus and plus 1.96 standard deviations shaded."></svg>
@@ -256,7 +258,25 @@ for (long long i = 0; i &lt; 10000000; ++i) {
     }
 }</code></pre>
 
-<p>Part 2 runs <code>kNumEstimates = 100000</code> estimators of <code>kPerEstimate = 1000</code> samples each, measures the spread of the estimates, and counts coverage — then compares against the analytic prediction $\sigma_Y/\sqrt K$ using the exact $\operatorname{Var}[Y]=\tfrac{e^2-1}{2}-(e-1)^2$:</p>
+<p>Running Part&nbsp;1 prints the estimate, its self-computed standard error, and the 95% interval, shrinking by decade:</p>
+
+<table>
+<thead><tr><th class="num">samples $N$</th><th class="num">estimate $F_N$</th><th class="num">std error</th><th class="num">95% CI $[F_N\pm1.96\,\widehat{\mathrm{SE}}]$</th></tr></thead>
+<tbody>
+<tr><td class="num">100</td><td class="num">1.7133762</td><td class="num">0.0502128</td><td class="num">[1.614959, 1.811793]</td></tr>
+<tr><td class="num">1,000</td><td class="num">1.7307562</td><td class="num">0.0157393</td><td class="num">[1.699907, 1.761605]</td></tr>
+<tr><td class="num">10,000</td><td class="num">1.7260770</td><td class="num">0.0049326</td><td class="num">[1.716409, 1.735745]</td></tr>
+<tr><td class="num">100,000</td><td class="num">1.7202327</td><td class="num">0.0015574</td><td class="num">[1.717180, 1.723285]</td></tr>
+<tr><td class="num">1,000,000</td><td class="num">1.7175014</td><td class="num">0.0004916</td><td class="num">[1.716538, 1.718465]</td></tr>
+<tr><td class="num">10,000,000</td><td class="num">1.7179835</td><td class="num">0.0001555</td><td class="num">[1.717679, 1.718288]</td></tr>
+</tbody>
+</table>
+
+<p>The standard error falls tenfold for every hundredfold in samples (the $1/\sqrt N$ law), and every interval brackets the true $1.7182818$.</p>
+
+<p>Part 2 runs <code>kNumEstimates = 100000</code> estimators of <code>kPerEstimate = 1000</code> samples each, measures the spread of the estimates, and counts coverage, comparing against the analytic prediction $\sigma_Y/\sqrt K$. For this integrand $\operatorname{Var}[Y]$ is closed-form — $\mathbb E[Y^2]=\int_0^1 e^{2x}\,dx=\tfrac{e^2-1}{2}$ and $\mathbb E[Y]=e-1$:</p>
+
+$$\operatorname{Var}[Y]=\mathbb E[Y^2]-\mathbb E[Y]^2=\frac{e^2-1}{2}-(e-1)^2\approx0.2420,\qquad \sigma_Y\approx0.4920 .$$
 
 <pre class="language-cpp"><code class="language-cpp">int covered = 0; double gMean = 0, gM2 = 0;           // stats OF the estimates
 for (int e = 0; e &lt; kNumEstimates; ++e) {
@@ -272,7 +292,7 @@ for (int e = 0; e &lt; kNumEstimates; ++e) {
 double spread = sqrt(gM2/(kNumEstimates-1));           // ~ sigma_Y/sqrt(K)
 double predSE = sqrt(((kE*kE-1)/2 - I*I) / kPerEstimate);</code></pre>
 
-<p>Typical output: mean of estimates $\approx I$, spread $\approx\,$predicted SE $\approx0.0156$, and coverage $\approx95\%$ — the estimator behaves exactly like the Normal the CLT promises.</p>
+<p>The actual output, from $100{,}000$ estimators of $1000$ samples each: the mean of the estimates is $1.7182275$ (true $1.7182818$), their spread is $0.0155742$ against the predicted $\sigma_Y/\sqrt{1000}=0.0155575$, and $95.02\%$ of the self-built intervals covered the truth — the estimator behaves exactly like the Normal the CLT promises.</p>
 
 
 <h2 id="8">8. Takeaways<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
