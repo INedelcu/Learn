@@ -79,7 +79,7 @@
 <h1>Sampling the normal distribution (Box–Muller)</h1>
 <p class="sub">12_gaussian_box_muller.cpp — the Gaussian's CDF has no elementary inverse, so inversion fails; Box–Muller sidesteps it by working in 2-D, turning two uniforms into two independent standard normals.</p>
 
-<p class="lead">The normal (Gaussian) is everywhere: it is the limiting shape the Central Limit Theorem produced for our estimator in <a href="04_variance_and_clt.html">example 04</a>, and Gaussian kernels are standard reconstruction/blur filters. So we want to <em>sample</em> one. But its CDF is the error function $\operatorname{erf}$, which has no elementary inverse — the inversion method of <a href="05_sampling_distributions.html">example 05</a> can't be applied directly. Box–Muller gets around that with a clever change to polar coordinates.</p>
+<p class="lead">The normal (Gaussian) is everywhere: it is the limiting shape the Central Limit Theorem produced for our estimator in <a href="04_variance_and_clt.html#4">example 04</a>, and Gaussian kernels are standard reconstruction/blur filters. So we want to <em>sample</em> one. But its CDF is the error function $\operatorname{erf}$, which has no elementary inverse — the inversion method of <a href="05_sampling_distributions.html#2">example 05</a> can't be applied directly. Box–Muller gets around that with a clever change to polar coordinates.</p>
 
 <div class="callout key">
 <strong>One-sentence summary.</strong> Two independent standard normals form a rotationally-symmetric cloud in the plane, so its <em>angle</em> is uniform and its <em>squared radius</em> is Exponential — both easy to sample by inversion; Box–Muller draws those polar coordinates from two uniforms and converts back: $R=\sqrt{-2\ln U_1}$, $\theta=2\pi U_2$, then $Z_0=R\cos\theta$, $Z_1=R\sin\theta$ are i.i.d. $\mathcal N(0,1)$.
@@ -95,7 +95,7 @@
 
 <h2 id="1">1. Why inversion fails here<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>The standard normal density is $\varphi(x)=\dfrac{1}{\sqrt{2\pi}}e^{-x^2/2}$, and its CDF $\Phi(x)=\tfrac12\big(1+\operatorname{erf}(x/\sqrt2)\big)$. Inversion sampling (<a href="05_sampling_distributions.html">example 05</a>) needs $\Phi^{-1}$ in closed form — but $\operatorname{erf}$ has no elementary inverse. So we need a different trick. The trick is to stop thinking in 1-D and sample <em>two</em> normals at once, geometrically.</p>
+<p>The standard normal density is $\varphi(x)=\dfrac{1}{\sqrt{2\pi}}e^{-x^2/2}$, and its CDF $\Phi(x)=\tfrac12\big(1+\operatorname{erf}(x/\sqrt2)\big)$. Inversion sampling (<a href="05_sampling_distributions.html#2">example 05</a>) needs $\Phi^{-1}$ in closed form — but $\operatorname{erf}$ has no elementary inverse. So we need a different trick. The trick is to stop thinking in 1-D and sample <em>two</em> normals at once, geometrically.</p>
 
 
 <h2 id="2">2. The Box–Muller transform<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
@@ -120,7 +120,7 @@ $$\varphi(z_0)\,\varphi(z_1)=\frac{1}{2\pi}\,e^{-(z_0^2+z_1^2)/2}=\frac{1}{2\pi}
 <li>the <strong>squared radius</strong> $S=R^2$ is <strong>Exponential</strong> with mean 2 (the area element $r\,dr$ turns $e^{-r^2/2}$ into the exponential density $\tfrac12 e^{-s/2}$).</li>
 </ul>
 
-<p>Both are samplable by inversion: a uniform angle is just $2\pi U_2$, and the Exponential inverse-CDF gives $S=-2\ln U_1$, so $R=\sqrt{-2\ln U_1}$ (the same exponential trick as <a href="05_sampling_distributions.html">example 05</a>). Convert the polar sample $(R,\theta)$ back to Cartesian and you have your two normals.</p>
+<p>Both are samplable by inversion: a uniform angle is just $2\pi U_2$, and the Exponential inverse-CDF gives $S=-2\ln U_1$, so $R=\sqrt{-2\ln U_1}$ (the same exponential trick as <a href="05_sampling_distributions.html#2">example 05</a>). Convert the polar sample $(R,\theta)$ back to Cartesian and you have your two normals.</p>
 
 <figure>
 <div class="twocol">
@@ -188,7 +188,7 @@ $$\varphi(z_0)\,\varphi(z_1)=\frac{1}{2\pi}\,e^{-(z_0^2+z_1^2)/2}=\frac{1}{2\pi}
 <h2 id="6">6. Practical notes<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <ul>
 <li><strong>Avoid $\ln 0$.</strong> $U_1$ must be in $(0,1]$, never $0$ — the file draws it as <code>1 - NextFloat()</code> (since <code>NextFloat()</code> returns $[0,1)$), so $\ln U_1$ is always finite.</li>
-<li><strong>Trig-free alternative.</strong> Marsaglia’s polar method samples a point in the unit disk by <em>rejection</em> (<a href="05_sampling_distributions.html">example 05</a>) and reuses its squared radius, avoiding the $\cos/\sin$ — handy when trig is costlier than a few rejected samples.</li>
+<li><strong>Trig-free alternative.</strong> Marsaglia’s polar method samples a point in the unit disk by <em>rejection</em> (<a href="05_sampling_distributions.html#3">example 05</a>) and reuses its squared radius, avoiding the $\cos/\sin$ — handy when trig is costlier than a few rejected samples.</li>
 <li><strong>Two at a time.</strong> Box–Muller naturally yields a <em>pair</em>; implementations often cache $Z_1$ and return it on the next call.</li>
 </ul>
 
@@ -212,7 +212,7 @@ for (long long i = 0; i &lt; kPairs; ++i) {
 <h2 id="8">8. Where the bell shows up in rendering<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
 <div class="callout">
-<strong>Rendering link.</strong> This is the same bell the Central Limit Theorem drew for the Monte Carlo estimator itself in <a href="04_variance_and_clt.html">example 04</a> — the per-pixel estimate is approximately $\mathcal N(I,\sigma^2/N)$, which is exactly why $\pm1.96\,\mathrm{SE}$ is a 95% error band. Separately, Gaussian kernels are a common choice of <em>reconstruction filter</em> (weighting sub-pixel samples) and of denoiser blur, so sampling/evaluating a Gaussian is a routine renderer task.
+<strong>Rendering link.</strong> This is the same bell the Central Limit Theorem drew for the Monte Carlo estimator itself in <a href="04_variance_and_clt.html#4">example 04</a> — the per-pixel estimate is approximately $\mathcal N(I,\sigma^2/N)$, which is exactly why $\pm1.96\,\mathrm{SE}$ is a 95% error band. Separately, Gaussian kernels are a common choice of <em>reconstruction filter</em> (weighting sub-pixel samples) and of denoiser blur, so sampling/evaluating a Gaussian is a routine renderer task.
 </div>
 
 

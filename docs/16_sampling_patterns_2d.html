@@ -78,7 +78,7 @@
 <h1>Seeing sample patterns: random vs stratified vs Halton</h1>
 <p class="sub">16_sampling_patterns_2d.cpp — examples 07 and 11 argued with numbers that well-spread samples integrate better. This one shows the same thing with pictures, then lines the pictures up against the error table.</p>
 
-<p class="lead">Monte Carlo error is, at bottom, about <em>where the samples land</em>. Independent random points clump together and leave gaps; the clumps are redundant work and the gaps are unsampled regions — together they are the variance. Two cures from earlier in the series fix this by construction: <strong>stratification</strong> (<a href="07_stratified_sampling.html">example 07</a>) puts one jittered point in each grid cell, and <strong>low-discrepancy sequences</strong> (<a href="11_low_discrepancy.html">example 11</a>) lay points down so evenly that no clump ever forms. Here we scatter 256 points all three ways and watch the difference — then confirm it in the integration error.</p>
+<p class="lead">Monte Carlo error is, at bottom, about <em>where the samples land</em>. Independent random points clump together and leave gaps; the clumps are redundant work and the gaps are unsampled regions — together they are the variance. Two cures from earlier in the series fix this by construction: <strong>stratification</strong> (<a href="07_stratified_sampling.html#2">example 07</a>) puts one jittered point in each grid cell, and <strong>low-discrepancy sequences</strong> (<a href="11_low_discrepancy.html#4">example 11</a>) lay points down so evenly that no clump ever forms. Here we scatter 256 points all three ways and watch the difference — then confirm it in the integration error.</p>
 
 <div class="callout key">
 <strong>One-sentence summary.</strong> Random samples clump (some grid cells get 3–4 points, a third get none); stratified guarantees exactly one per cell; Halton stays globally even at every prefix — and on the smooth test integral $\iint_{[0,1]^2} e^{x+y}$ that visual difference shows up directly as convergence rate: random error falls as $1/\sqrt N$ while stratified and Halton fall close to $1/N$.</p>
@@ -132,7 +132,7 @@
 
 <h2 id="3">3. The same story as numbers<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Estimate the smooth, separable integral from <a href="11_low_discrepancy.html">example 11</a>,</p>
+<p>Estimate the smooth, separable integral from <a href="11_low_discrepancy.html#6">example 11</a>,</p>
 $$\iint_{[0,1]^2} e^{x+y}\,dx\,dy=(e-1)^2=2.9524924,$$
 <p>with each sampler, and measure the error (RMSE over 256 trials for the randomized methods; Halton is deterministic so it is a single error). The numbers the C++ file prints:</p>
 

@@ -178,7 +178,7 @@ $$\bar x_n=\frac1n\sum_{i=1}^{n}x_i .$$
 </tbody>
 </table>
 
-<p>Watch it happen live. The x-axis is logarithmic, so each step right is a tenfold increase in samples — and notice it takes roughly $10\times$ the samples to win each additional correct digit. That painfully slow $\propto1/\sqrt n$ rate is the headline of examples <a href="02_estimating_pi.html">02</a> and <a href="04_variance_and_clt.html">04</a>.</p>
+<p>Watch it happen live. The x-axis is logarithmic, so each step right is a tenfold increase in samples — and notice it takes roughly $10\times$ the samples to win each additional correct digit. That painfully slow $\propto1/\sqrt n$ rate is the headline of examples <a href="02_estimating_pi.html#4">02</a> and <a href="04_variance_and_clt.html#2">04</a>.</p>
 
 <figure>
 <svg id="conv" viewBox="0 0 600 340" role="img" aria-label="Running mean and variance estimates converging toward their true values as the sample count grows."></svg>
@@ -290,7 +290,7 @@ $$s^2=\frac{1}{n-1}\sum_{i=1}^n (x_i-\bar x_n)^2=\frac{M_2}{n-1}.$$
 $$\mathbb E\!\left[\tfrac1n\sum_{i=1}^n (x_i-\bar x_n)^2\right]
   =\frac1n\Big(n\,\sigma^2-n\cdot\tfrac{\sigma^2}{n}\Big)
   =\frac{n-1}{n}\,\sigma^2.$$
-So the divide-by-$n$ estimate undershoots the true variance $\sigma^2$ by exactly $\tfrac{n-1}{n}$; dividing by $n-1$ cancels that factor, giving $\mathbb E[s^2]=\sigma^2$. A common way to phrase it: estimating the mean from the data &ldquo;uses up&rdquo; one <em>degree of freedom</em>, leaving $n-1$ independent deviations. <span class="small">(The $\operatorname{Var}[\bar x_n]=\sigma^2/n$ step is itself derived in <a href="04_variance_and_clt.html">example 04</a>.)</span>
+So the divide-by-$n$ estimate undershoots the true variance $\sigma^2$ by exactly $\tfrac{n-1}{n}$; dividing by $n-1$ cancels that factor, giving $\mathbb E[s^2]=\sigma^2$. A common way to phrase it: estimating the mean from the data &ldquo;uses up&rdquo; one <em>degree of freedom</em>, leaving $n-1$ independent deviations. <span class="small">(The $\operatorname{Var}[\bar x_n]=\sigma^2/n$ step is itself derived in <a href="04_variance_and_clt.html#2">example 04</a>.)</span>
 </div>
 
 <p>The correction matters most when $n$ is small. At $n=2$ the divide-by-$n$ estimate is too low by half; by $n=1000$ the factor is $0.999$ and nobody cares. Slide $n$ below and watch the divide-by-$n$ estimate (red) sit consistently under the true line while the Bessel-corrected one (purple) lands on it. Each bar is the <em>average</em> over thousands of independent samples, so what you are seeing is the bias, not random noise.</p>

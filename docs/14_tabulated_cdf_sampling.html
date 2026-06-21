@@ -78,7 +78,7 @@
 <h1>Sampling tabulated distributions: build &amp; invert a CDF</h1>
 <p class="sub">14_tabulated_cdf_sampling.cpp — the distributions a renderer most wants to sample have no formula at all. They arrive as a table of numbers. Here is the standard machinery: normalize, prefix-sum into a CDF, and invert it with a binary search.</p>
 
-<p class="lead"><a href="05_sampling_distributions.html">Example 05</a> inverted a CDF that had a clean closed-form inverse — $\sqrt U$, $-\ln(1-U)/\lambda$. But the most important distributions in rendering have <em>no</em> formula: the luminance of an HDR environment map, a measured BRDF, the power of each light in the scene. They are just <strong>tables of numbers</strong>. This file shows how to sample any such table proportionally to its weights, in $O(\log N)$ per sample with a single, branch-coherent binary search — the exact pattern behind environment-map importance sampling and light selection.</p>
+<p class="lead"><a href="05_sampling_distributions.html#2">Example 05</a> inverted a CDF that had a clean closed-form inverse — $\sqrt U$, $-\ln(1-U)/\lambda$. But the most important distributions in rendering have <em>no</em> formula: the luminance of an HDR environment map, a measured BRDF, the power of each light in the scene. They are just <strong>tables of numbers</strong>. This file shows how to sample any such table proportionally to its weights, in $O(\log N)$ per sample with a single, branch-coherent binary search — the exact pattern behind environment-map importance sampling and light selection.</p>
 
 <div class="callout key">
 <strong>One-sentence summary.</strong> Treat the table as a piecewise-constant pdf, normalize it, and prefix-sum it into a cumulative table $F$ with $N{+}1$ entries ($F_0=0,\ F_N=1$); to draw a sample, take $u\sim U[0,1)$ and <em>binary-search</em> for the bin with $F_i\le u&lt;F_{i+1}$ — exactly one search per sample, so every GPU lane does the same work — then either interpolate inside the bin (continuous) or just return the index (discrete "which light?").
@@ -95,7 +95,7 @@
 
 <h2 id="1">1. The problem: distributions that are only a table<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Inversion and rejection (<a href="05_sampling_distributions.html">example 05</a>) both assumed you could write the density down. Real rendering data can't be. An environment map is a grid of measured radiances; the "density" you want to sample is its per-texel luminance — a few million numbers with no analytic form. Same for the list of light powers in a scene, or a tabulated BRDF. The question is always the same: <em>given a table of non-negative weights, draw an index (or a position) with probability proportional to the weights.</em></p>
+<p>Inversion and rejection (<a href="05_sampling_distributions.html#1">example 05</a>) both assumed you could write the density down. Real rendering data can't be. An environment map is a grid of measured radiances; the "density" you want to sample is its per-texel luminance — a few million numbers with no analytic form. Same for the list of light powers in a scene, or a tabulated BRDF. The question is always the same: <em>given a table of non-negative weights, draw an index (or a position) with probability proportional to the weights.</em></p>
 
 <p>Our running test case mirrors the C++ file: a 1-D <strong>"sky row"</strong> of $W=32$ bins, all dim except three in the middle (the <span style="color:var(--sun)">sun</span>) that are $100\times$ brighter. A correct sampler must send almost all of its samples into those three bins.</p>
 
@@ -123,7 +123,7 @@ $$\text{find }i\ \text{such that}\quad F_i\le u&lt;F_{i+1}.$$
 
 <h2 id="3">3. Inverting the CDF, made visual<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Plot the CDF $F$ against the domain. Because the pdf is constant within each bin, $F$ rises in a straight ramp across each bin, with <em>slope equal to that bin's probability</em>. To sample, enter at a height $u$ on the left axis, go right until you hit the ramp, and drop down: that landing point is your sample. Steep segments (high $p_i$) span a tall slice of the $u$-axis, so they swallow most draws — that <em>is</em> importance sampling (<a href="06_importance_sampling.html">example 06</a>) falling out of the geometry.</p>
+<p>Plot the CDF $F$ against the domain. Because the pdf is constant within each bin, $F$ rises in a straight ramp across each bin, with <em>slope equal to that bin's probability</em>. To sample, enter at a height $u$ on the left axis, go right until you hit the ramp, and drop down: that landing point is your sample. Steep segments (high $p_i$) span a tall slice of the $u$-axis, so they swallow most draws — that <em>is</em> importance sampling (<a href="06_importance_sampling.html#2">example 06</a>) falling out of the geometry.</p>
 
 <figure>
 <svg id="fig-inv" viewBox="0 0 600 360" role="img" aria-label="The CDF drawn as a piecewise-linear ramp; a horizontal line at height u maps to a sampled position on the x-axis."></svg>
@@ -150,7 +150,7 @@ $$\text{find }i\ \text{such that}\quad F_i\le u&lt;F_{i+1}.$$
 <figcaption>Figure 3. Locating $u=0.50$ in the 6-bin CDF edges $[0,.05,.20,.60,.85,.95,1]$. Each step halves the bracket: compare $u$ to the middle edge, keep the side that still contains it. Six bins resolve in $\lceil\log_2 6\rceil=3$ comparisons; a million texels in only 20.</figcaption>
 </figure>
 
-<p>The cost is $O(\log N)$, but the property that matters on a GPU is subtler: a binary search does <strong>exactly the same number of steps for every $u$</strong>. Contrast rejection sampling (<a href="05_sampling_distributions.html">example 05</a>), whose try-count is random and differs per sample — on a SIMD warp the lucky lanes must idle until the unlucky one finishes, so the whole warp runs at worst-case speed. The fixed, data-independent work of a binary search keeps all 32 lanes in lockstep. That predictability is why this, not rejection, is the workhorse for tables.</p>
+<p>The cost is $O(\log N)$, but the property that matters on a GPU is subtler: a binary search does <strong>exactly the same number of steps for every $u$</strong>. Contrast rejection sampling (<a href="05_sampling_distributions.html#3">example 05</a>), whose try-count is random and differs per sample — on a SIMD warp the lucky lanes must idle until the unlucky one finishes, so the whole warp runs at worst-case speed. The fixed, data-independent work of a binary search keeps all 32 lanes in lockstep. That predictability is why this, not rejection, is the workhorse for tables.</p>
 
 
 <h2 id="5">5. Continuous vs. discrete sampling<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
@@ -159,7 +159,7 @@ $$\text{find }i\ \text{such that}\quad F_i\le u&lt;F_{i+1}.$$
 
 <p><strong>Continuous</strong> — a real-valued position, e.g. a sub-texel coordinate on the environment map. Interpolate <em>within</em> the bin using how far $u$ reached across its cumulative step:</p>
 $$t=\frac{u-F_i}{F_{i+1}-F_i},\qquad x=i+t\ \in[i,i+1).$$
-<p>Since each bin is one unit wide, the density at the sample is just the bin's mass, $p(x)=F_{i+1}-F_i=p_i$ — the value MIS (<a href="09_multiple_importance_sampling.html">example 09</a>) needs as the pdf of this strategy.</p>
+<p>Since each bin is one unit wide, the density at the sample is just the bin's mass, $p(x)=F_{i+1}-F_i=p_i$ — the value MIS (<a href="09_multiple_importance_sampling.html#3">example 09</a>) needs as the pdf of this strategy.</p>
 
 <p><strong>Discrete</strong> — just the index $i$. "Which of these $N$ lights do I shade?" is answered by the same prefix-sum CDF and the same binary search; you return the bin number and stop. No interpolation, no density-within-a-bin — the probability of picking light $i$ is exactly $p_i$.</p>
 
@@ -212,11 +212,11 @@ $$t=\frac{u-F_i}{F_{i+1}-F_i},\qquad x=i+t\ \in[i,i+1).$$
 
 <p>This single routine is everywhere a renderer faces measured data it can only tabulate:</p>
 <ul>
-<li><strong>Environment-map importance sampling.</strong> Build a pdf from per-texel luminance and sample directions toward the bright parts of the sky instead of firing rays uniformly — the 1-D version here, extended to 2-D in <a href="15_env_map_2d_sampling.html">example 15</a> (sample a row by its total power, then a texel within that row).</li>
+<li><strong>Environment-map importance sampling.</strong> Build a pdf from per-texel luminance and sample directions toward the bright parts of the sky instead of firing rays uniformly — the 1-D version here, extended to 2-D in <a href="15_env_map_2d_sampling.html#3">example 15</a> (sample a row by its total power, then a texel within that row).</li>
 <li><strong>Light selection.</strong> The discrete pick of §7 chooses which light to sample in a many-light scene, weighted by power (or a better importance estimate).</li>
 <li><strong>Any measured BRDF or phase function</strong> supplied as a table rather than a formula.</li>
 </ul>
-<p>The companion <a href="https://github.com/INedelcu/PathTracingDemo">PathTracingDemo</a> renderer samples an environment cubemap for its lighting; turning that map's luminance into an importance distribution is exactly the construction on this page. Note the returned density $p_i$ is what lets these strategies be combined with others through MIS (<a href="09_multiple_importance_sampling.html">example 09</a>).</p>
+<p>The companion <a href="https://github.com/INedelcu/PathTracingDemo">PathTracingDemo</a> renderer samples an environment cubemap for its lighting; turning that map's luminance into an importance distribution is exactly the construction on this page. Note the returned density $p_i$ is what lets these strategies be combined with others through MIS (<a href="09_multiple_importance_sampling.html#3">example 09</a>).</p>
 
 
 <h2 id="9">9. The code<a class="hlink" href="#9" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
@@ -256,7 +256,7 @@ int SampleDiscrete(const std::vector&lt;float&gt;&amp; cdf, float u) {
 }</code></pre>
 
 <div class="callout">
-<strong>Takeaway.</strong> Any non-negative table becomes a sampler in three lines of setup (normalize, prefix-sum) and one $O(\log N)$ binary search per draw. It is exact (no rejection waste), unbiased, returns its own density for MIS, and does identical work on every lane — the reason it underlies environment-map and light sampling in production path tracers. <a href="15_env_map_2d_sampling.html">Example 15</a> lifts it to the full 2-D environment map.
+<strong>Takeaway.</strong> Any non-negative table becomes a sampler in three lines of setup (normalize, prefix-sum) and one $O(\log N)$ binary search per draw. It is exact (no rejection waste), unbiased, returns its own density for MIS, and does identical work on every lane — the reason it underlies environment-map and light sampling in production path tracers. <a href="15_env_map_2d_sampling.html#1">Example 15</a> lifts it to the full 2-D environment map.
 </div>
 
 <p class="small" style="margin-top:34px">Part of the <a href="index.html">Monte Carlo &amp; path tracing explainer series</a>. Previous: <a href="13_image_convergence_ppm.html">13 — Seeing the noise</a>. Next: <a href="15_env_map_2d_sampling.html">15 — 2-D environment-map sampling</a>.</p>

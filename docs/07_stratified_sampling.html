@@ -116,15 +116,19 @@ $$\text{plain:}\quad x_i=U_i,\qquad\qquad \text{stratified:}\quad x_i=\frac{i+U_
 
 <h2 id="3">3. Why it works: variance is the sum of tiny pieces<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Because the cells are disjoint and the samples independent, the variance of the stratified estimate is the <strong>sum of the within-stratum variances</strong>:</p>
+<p>Write $\hat I_{\text{strat}}=\frac1N\sum_i f(X_i)$ with one independent $X_i$ per cell. Variances of independent terms add and the $\tfrac1N$ squares out, and each $X_i$ is uniform on its own cell — so the variance is the <strong>sum of the within-stratum variances</strong>:</p>
 
 $$\operatorname{Var}[\hat I_{\text{strat}}]=\frac1{N^2}\sum_{i=0}^{N-1}\operatorname{Var}\!\big[f(X)\,\big|\,X\in\text{cell }i\big].$$
 
-<p>Here is the leverage. Each stratum spans only $1/N$ of the domain, so a smooth $f$ is nearly <em>linear</em> across it, and the variance of a near-linear function over a cell of width $h=1/N$ is about $(f'h)^2/12$ — it shrinks like $h^2=1/N^2$. Summing $N$ such pieces and dividing by $N^2$:</p>
+<p>Here is the leverage. Each stratum spans only $h=1/N$ of the domain, so a smooth $f$ is nearly <em>linear</em> across it: $f(x)\approx f(c)+f'(c)(x-c)$ about the cell center $c$. The variance of that is $f'(c)^2$ times the variance of a uniform on a width-$h$ interval — and a uniform's variance is $h^2/12$ (the $1/12$ from <a href="01_random_and_estimators.html#1">example 01</a>, scaled by $h^2$) — so each cell contributes about $f'(c)^2\,h^2/12$, shrinking like $h^2$. Summing $N$ such pieces, replacing $\sum_i f'(c_i)^2$ by $\tfrac1h\int_0^1(f')^2$, and dividing by $N^2$:</p>
 
 $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\! \big(f'(x)\big)^2\,dx\;\sim\;\frac{1}{N^3},$$
 
-<p>versus plain Monte Carlo’s $\operatorname{Var}[\hat I_{\text{plain}}]=\operatorname{Var}[f]/N\sim 1/N$. So the standard error falls like $1/N^{1.5}$ instead of $1/\sqrt N$, and the <em>ratio</em> of variances grows like $N^2$ — the more samples, the bigger the win.</p>
+<p>versus plain Monte Carlo’s $\operatorname{Var}[\hat I_{\text{plain}}]=\operatorname{Var}[f]/N\sim 1/N$. So the standard error falls like $1/N^{1.5}$ instead of $1/\sqrt N$, and the <em>ratio</em> of variances grows like $N^2$ — the more samples, the bigger the win:</p>
+
+$$\frac{\operatorname{Var}_{\text{plain}}}{\operatorname{Var}_{\text{strat}}}\approx\frac{\operatorname{Var}[f]/N}{\frac1{12N^3}\int_0^1(f')^2}=\frac{12\,N^2\,\operatorname{Var}[f]}{\int_0^1(f')^2\,dx}.$$
+
+<p>For $f=e^x$, $\operatorname{Var}[f]\approx0.2420$ and $\int_0^1(f')^2=\int_0^1 e^{2x}=\tfrac{e^2-1}{2}\approx3.1945$, so at $N=64$ the formula predicts $\tfrac{12\cdot64^2\cdot0.2420}{3.1945}\approx3724\times$ — and the program measures $\mathbf{3708\times}$ (plain variance $3.76\text{e-}3$ vs stratified $1.01\text{e-}6$), both estimators landing on $1.71828$.</p>
 
 <div class="callout">
 <strong>Intuition.</strong> Plain MC pays for variance that is mostly just the integrand’s overall slope across the whole domain. Stratification removes that big, coarse component for free, leaving only the tiny wiggle <em>inside</em> each cell. The smoother $f$ is, the less is left.
@@ -156,7 +160,7 @@ $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\
 
 <h2 id="5">5. Convergence: faster than 1/√N<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Plot the RMS error against $N$ on log–log axes and the two methods separate by their <em>slope</em>: plain MC falls at slope $-\tfrac12$ (the universal $1/\sqrt N$ from <a href="02_estimating_pi.html">example 02</a>), while stratified falls at slope $\approx-\tfrac32$. That steeper line is the headline — stratification doesn’t just shift the constant (as importance sampling did), it improves the <em>rate</em> for smooth 1-D integrands.</p>
+<p>Plot the RMS error against $N$ on log–log axes and the two methods separate by their <em>slope</em>: plain MC falls at slope $-\tfrac12$ (the universal $1/\sqrt N$ from <a href="02_estimating_pi.html#4">example 02</a>), while stratified falls at slope $\approx-\tfrac32$. That steeper line is the headline — stratification doesn’t just shift the constant (as importance sampling did), it improves the <em>rate</em> for smooth 1-D integrands.</p>
 
 <figure>
 <svg id="conv" viewBox="0 0 600 360" role="img" aria-label="Log-log RMS error versus N for plain and stratified, with reference slopes."></svg>
@@ -171,7 +175,7 @@ $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\
 
 <h2 id="6">6. The catch: the curse of dimensionality<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>A full stratified grid in $d$ dimensions needs $N^d$ cells to keep $N$ subdivisions per axis. At $d=2$ that is fine (an image plane of pixels), but light paths are high-dimensional — many bounces, each with 2+ random numbers — and $N^d$ explodes. So renderers do <strong>not</strong> build a full grid. Instead they stratify <em>per dimension</em> (each random dimension gets its own 1-D stratification or a shuffled assignment, as in Latin hypercube sampling, example 29) or switch to <strong>low-discrepancy</strong> sequences that stay well-spread in high dimensions without a grid (examples <a href="11_low_discrepancy.html">11</a>, 16, 42).</p>
+<p>A full stratified grid in $d$ dimensions needs $N^d$ cells to keep $N$ subdivisions per axis. At $d=2$ that is fine (an image plane of pixels), but light paths are high-dimensional — many bounces, each with 2+ random numbers — and $N^d$ explodes. So renderers do <strong>not</strong> build a full grid. Instead they stratify <em>per dimension</em> (each random dimension gets its own 1-D stratification or a shuffled assignment, as in Latin hypercube sampling, example 29) or switch to <strong>low-discrepancy</strong> sequences that stay well-spread in high dimensions without a grid (examples <a href="11_low_discrepancy.html#4">11</a>, 16, 42).</p>
 
 <div class="callout warn">
 <strong>Why not just stratify everything?</strong> Because $N^d$ cells means a useful $N$ becomes astronomically expensive past a few dimensions, and most cells would never get a sample. The high-dimensional substitutes keep stratification’s “well-spread” benefit while paying only $O(N)$.
@@ -188,7 +192,7 @@ $$\operatorname{Var}[\hat I_{\text{strat}}]\;\approx\;\frac{1}{12\,N^3}\int_0^1\
 <h2 id="8">8. The code<a class="hlink" href="#8" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/07_stratified_sampling.cpp" target="_blank" rel="noopener"><code>07_stratified_sampling.cpp</code></a>.</p>
 
-<p>Two estimators per trial, with a Welford pass (<a href="01_random_and_estimators.html">example 01</a>) over the trials to measure each method’s variance:</p>
+<p>Two estimators per trial, with a Welford pass (<a href="01_random_and_estimators.html#5">example 01</a>) over the trials to measure each method’s variance:</p>
 
 <pre class="language-cpp"><code class="language-cpp">const int N = 64;             // samples per estimate = number of strata
 for (int t = 0; t &lt; kTrials; ++t) {
@@ -219,7 +223,7 @@ printf("variance reduction factor: %.1fx\n", varPlain / varStrat);</code></pre>
 <li><strong>The recipe.</strong> $x_i=(i+U_i)/N$ instead of $x_i=U_i$. Still an average, still unbiased — the jitter keeps it so.</li>
 <li><strong>Variance = sum of within-stratum variances.</strong> Each cell is $1/N$ wide, so for smooth $f$ each piece is tiny; total variance $\sim1/N^3$, error $\sim1/N^{1.5}$.</li>
 <li><strong>It improves the rate, not just the constant.</strong> Slope $-\tfrac32$ vs plain’s $-\tfrac12$; the reduction grows as $N^2$. (Contrast importance sampling, which lowered the constant at the same $-\tfrac12$ rate.)</li>
-<li><strong>Curse of dimensionality.</strong> A full grid needs $N^d$ cells; high-dimensional rendering uses per-dimension stratification (Latin hypercube, ex. 29) or low-discrepancy sequences (ex. <a href="11_low_discrepancy.html">11</a>, 16, 42) instead.</li>
+<li><strong>Curse of dimensionality.</strong> A full grid needs $N^d$ cells; high-dimensional rendering uses per-dimension stratification (Latin hypercube, ex. 29) or low-discrepancy sequences (ex. <a href="11_low_discrepancy.html#4">11</a>, 16, 42) instead.</li>
 <li><strong>It’s the renderer’s pixel/lens/time/light jitter</strong> — 2-D stratification of the image plane, essentially free anti-noise.</li>
 </ul>
 

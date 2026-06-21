@@ -81,7 +81,7 @@
 <h1>The Monte Carlo integration estimator</h1>
 <p class="sub">03_monte_carlo_integration.cpp — the one formula behind the whole field: turn a definite integral into the average of random samples, scaled by their probability density.</p>
 
-<p class="lead">Examples <a href="01_random_and_estimators.html">01</a> and <a href="02_estimating_pi.html">02</a> estimated specific quantities — a mean, the area $\pi/4$. This file states the general tool they were secretly using. To compute a definite integral $I=\int_a^b f(x)\,dx$ that has no convenient antiderivative, draw random points, average $f$ over them, and rescale. The estimator never needs to know the closed-form integral — only how to <em>evaluate</em> $f$ — which is exactly why it survives the jump to the high-dimensional integrals of light transport.</p>
+<p class="lead">Examples <a href="01_random_and_estimators.html#3">01</a> and <a href="02_estimating_pi.html#1">02</a> estimated specific quantities — a mean, the area $\pi/4$. This file states the general tool they were secretly using. To compute a definite integral $I=\int_a^b f(x)\,dx$ that has no convenient antiderivative, draw random points, average $f$ over them, and rescale. The estimator never needs to know the closed-form integral — only how to <em>evaluate</em> $f$ — which is exactly why it survives the jump to the high-dimensional integrals of light transport.</p>
 
 <div class="callout key">
 <strong>One-sentence summary.</strong> For samples drawn from <em>any</em> density $p$, the average of $f(X_i)/p(X_i)$ is an unbiased estimate of $\int f$, because the $p$ in the denominator cancels the $p$ in the expectation integral; with the simplest choice — uniform $p=\tfrac1{b-a}$ — this collapses to “(domain width) × (average of $f$).”
@@ -154,7 +154,7 @@ $$\mathbb E\!\left[\frac{f(X)}{p(X)}\right]=\int_a^b\frac{f(x)}{p(x)}\,p(x)\,dx=
 <strong>The $p$’s cancel.</strong> That single cancellation is the entire theory of Monte Carlo integration. It says: <em>sample from $p$, divide each sample of $f$ by the density $p$ at that point, average — and you get the integral, exactly in expectation, with no bias.</em> The sample mean of $f/p$ is an <strong>unbiased estimator</strong> of $I$ for <em>any</em> valid $p$.
 </div>
 
-<p>Because it is an average of $N$ i.i.d. terms, everything from example <a href="01_random_and_estimators.html">01</a> and <a href="02_estimating_pi.html">02</a> carries over: the Law of Large Numbers makes it converge, and its error falls as $1/\sqrt N$ (more in §6). The variance of that average — how noisy the estimate is — depends on how much the ratio $f/p$ varies from sample to sample, which is the hook for the next idea.</p>
+<p>Because it is an average of $N$ i.i.d. terms, everything from example <a href="01_random_and_estimators.html#3">01</a> and <a href="02_estimating_pi.html#4">02</a> carries over: the Law of Large Numbers makes it converge, and its error falls as $1/\sqrt N$ (more in §6). The variance of that average — how noisy the estimate is — depends on how much the ratio $f/p$ varies from sample to sample, which is the hook for the next idea.</p>
 
 
 <h2 id="4">4. Any density works — and that freedom is the whole game<a class="hlink" href="#4" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
@@ -162,7 +162,7 @@ $$\mathbb E\!\left[\frac{f(X)}{p(X)}\right]=\int_a^b\frac{f(x)}{p(x)}\,p(x)\,dx=
 <p>The identity in §3 used <em>no</em> special property of the uniform density. It holds for any $p(x)$ that is nonzero everywhere $f$ is nonzero (otherwise you would divide by zero in a region that contributes to $I$). This file uses the simplest $p$ — uniform — but the freedom to choose $p$ is what later examples exploit:</p>
 
 <ul>
-<li>If $p$ is roughly <strong>shaped like $f$</strong>, the ratio $f/p$ is nearly constant, so its variance is tiny and the estimate converges fast. This is <strong>importance sampling</strong> (<a href="06_importance_sampling.html">example 06</a>).</li>
+<li>If $p$ is roughly <strong>shaped like $f$</strong>, the ratio $f/p$ is nearly constant, so its variance is tiny and the estimate converges fast. This is <strong>importance sampling</strong> (<a href="06_importance_sampling.html#2">example 06</a>).</li>
 <li>In the extreme, $p\propto f$ makes $f/p$ exactly constant — <em>zero variance</em>, every sample lands on the answer.</li>
 </ul>
 
@@ -187,7 +187,7 @@ $$\frac{f(X)}{p(X)}=\frac{f(X)}{f(X)/I}=I,$$
   <div class="row"><span>exact $e-1$</span><b style="color:var(--true)">1.71828</b></div>
   <div class="row"><span>std. dev of $f/p$</span><b id="w-std">—</b></div>
 </div>
-<figcaption>Figure 2. Each tick is one sample’s $f/p$ value (3,000 samples). All three densities average to the same exact integral (purple line), but the matched density $p\propto e^x$ squeezes every $f/p$ value onto a single point — zero variance. The choice of $p$ is the only lever on Monte Carlo noise; that lever is <a href="06_importance_sampling.html">example 06</a>.</figcaption>
+<figcaption>Figure 2. Each tick is one sample’s $f/p$ value (3,000 samples). All three densities average to the same exact integral (purple line), but the matched density $p\propto e^x$ squeezes every $f/p$ value onto a single point — zero variance. The choice of $p$ is the only lever on Monte Carlo noise; that lever is <a href="06_importance_sampling.html#1">example 06</a>.</figcaption>
 </figure>
 
 
@@ -225,7 +225,7 @@ $$\int_0^1 e^x\,dx=e-1\approx1.7182818,\qquad\qquad\int_0^\pi \sin x\,dx=2 .$$
 
 <h2 id="6">6. Convergence: the same 1/√N as everything else<a class="hlink" href="#6" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Because the estimator is a sample mean, its error obeys the law from <a href="02_estimating_pi.html">example 02</a>: absolute error $\propto1/\sqrt N$, a straight line of slope $-\tfrac12$ on log–log axes. Both integrands follow it; only the constant out front differs (it is set by the variance of $f/p$, i.e. by how much each integrand wiggles).</p>
+<p>Because the estimator is a sample mean, its error obeys the law from <a href="02_estimating_pi.html#4">example 02</a>: absolute error $\propto1/\sqrt N$, a straight line of slope $-\tfrac12$ on log–log axes. Both integrands follow it; only the constant out front differs (it is set by the variance of $f/p$, i.e. by how much each integrand wiggles).</p>
 
 <p>Concretely, the estimator is the sample mean of the i.i.d. values $Y_i=f(X_i)/p(X_i)$, so the variance-of-the-mean result from <a href="02_estimating_pi.html#4">example&nbsp;02</a> applies verbatim:</p>
 
@@ -321,12 +321,12 @@ EstimateIntegral(gSin, 0.0, kPi, n, rng);</code></pre>
 <ul>
 <li><strong>The estimator.</strong> $\hat I_N=\frac1N\sum f(X_i)/p(X_i)$ estimates $\int f$ for samples drawn from density $p$; with uniform $p$ it is “(domain width) × (average of $f$).”</li>
 <li><strong>Why it’s unbiased.</strong> $\mathbb E[f/p]=\int (f/p)\,p\,dx=\int f$ — the sampling density cancels. True for any $p$ that is nonzero wherever $f$ is.</li>
-<li><strong>Choice of $p$ is the only knob.</strong> It does not change <em>what</em> the estimator converges to (always $I$), only <em>how fast</em> — the variance of $f/p$. Matching $p$ to $f$ is importance sampling (<a href="06_importance_sampling.html">example 06</a>).</li>
-<li><strong>Convergence is $1/\sqrt N$.</strong> As a sample mean it inherits the rate and analysis of examples <a href="01_random_and_estimators.html">01</a>–<a href="02_estimating_pi.html">02</a>.</li>
+<li><strong>Choice of $p$ is the only knob.</strong> It does not change <em>what</em> the estimator converges to (always $I$), only <em>how fast</em> — the variance of $f/p$. Matching $p$ to $f$ is importance sampling (<a href="06_importance_sampling.html#2">example 06</a>).</li>
+<li><strong>Convergence is $1/\sqrt N$.</strong> As a sample mean it inherits the rate and analysis of examples <a href="01_random_and_estimators.html#3">01</a>–<a href="02_estimating_pi.html#4">02</a>.</li>
 <li><strong>No antiderivative required.</strong> The estimator only evaluates $f$ at points, so it scales to the high-dimensional, no-closed-form integrals of light transport — where it appears as the rendering equation, an average of $f_r L_i\cos\theta / p(\omega)$.</li>
 </ul>
 
-<p class="small">References — the $f/p$ estimator is the foundation of Monte Carlo integration; see Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.1–13.3, and Veach’s thesis, <em>Robust Monte Carlo Methods for Light Transport Simulation</em> (1997), ch. 2. The $1/\sqrt N$ rate is the Central Limit Theorem (<a href="04_variance_and_clt.html">example 04</a>); the choice of $p$ is developed in <a href="06_importance_sampling.html">example 06</a> (importance sampling).</p>
+<p class="small">References — the $f/p$ estimator is the foundation of Monte Carlo integration; see Pharr, Jakob &amp; Humphreys, <em>Physically Based Rendering</em>, §13.1–13.3, and Veach’s thesis, <em>Robust Monte Carlo Methods for Light Transport Simulation</em> (1997), ch. 2. The $1/\sqrt N$ rate is the Central Limit Theorem (<a href="04_variance_and_clt.html#4">example 04</a>); the choice of $p$ is developed in <a href="06_importance_sampling.html#2">example 06</a> (importance sampling).</p>
 
 </div>
 

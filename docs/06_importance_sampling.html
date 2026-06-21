@@ -79,7 +79,7 @@
 <h1>Importance sampling</h1>
 <p class="sub">06_importance_sampling.cpp — the single biggest lever on Monte Carlo noise: spend your samples where the integrand is big by choosing a sampling density shaped like it.</p>
 
-<p class="lead"><a href="03_monte_carlo_integration.html">Example 03</a> showed that the estimator $\frac1N\sum f(X_i)/p(X_i)$ is unbiased for <em>any</em> density $p$. <a href="05_sampling_distributions.html">Example 05</a> showed how to actually draw from a non-uniform $p$. Now we cash that in: by choosing $p$ to resemble $f$, the ratio $f/p$ barely varies from sample to sample, the average stops fluctuating, and the variance — the noise — collapses. This is the same move a path tracer makes when it samples the BRDF lobes instead of firing rays blindly.</p>
+<p class="lead"><a href="03_monte_carlo_integration.html#3">Example 03</a> showed that the estimator $\frac1N\sum f(X_i)/p(X_i)$ is unbiased for <em>any</em> density $p$. <a href="05_sampling_distributions.html#1">Example 05</a> showed how to actually draw from a non-uniform $p$. Now we cash that in: by choosing $p$ to resemble $f$, the ratio $f/p$ barely varies from sample to sample, the average stops fluctuating, and the variance — the noise — collapses. This is the same move a path tracer makes when it samples the BRDF lobes instead of firing rays blindly.</p>
 
 <div class="callout key">
 <strong>One-sentence summary.</strong> The estimator averages the ratio $f(X)/p(X)$; if $p$ is shaped like $f$ that ratio is nearly constant so its variance is small, and in the unreachable ideal $p=f/I$ the ratio is exactly $I$ every time (zero variance) — so picking $p$ to track where $f$ is large cuts noise dramatically <em>without</em> introducing any bias.
@@ -95,11 +95,11 @@
 
 <h2 id="1">1. The lever: any $p$ is unbiased, but not equally noisy<a class="hlink" href="#1" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Recall the general estimator and its mean from <a href="03_monte_carlo_integration.html">example 03</a> — unbiased for any valid $p$:</p>
+<p>Recall the general estimator and its mean from <a href="03_monte_carlo_integration.html#3">example 03</a> — unbiased for any valid $p$:</p>
 
 $$I=\int f(x)\,dx=\mathbb E_{X\sim p}\!\left[\frac{f(X)}{p(X)}\right].$$
 
-<p><a href="04_variance_and_clt.html">Example 04</a> then told us the noise is set by the <em>variance</em> of the thing being averaged, here the per-sample value $Y=f(X)/p(X)$. So the bias is fixed (zero) no matter what $p$ we pick — but the variance $\operatorname{Var}[Y]$, and therefore the noise, is entirely ours to control through $p$.</p>
+<p><a href="04_variance_and_clt.html#2">Example 04</a> then told us the noise is set by the <em>variance</em> of the thing being averaged, here the per-sample value $Y=f(X)/p(X)$. So the bias is fixed (zero) no matter what $p$ we pick — but the variance $\operatorname{Var}[Y]$, and therefore the noise, is entirely ours to control through $p$.</p>
 
 
 <h2 id="2">2. The idea: flatten the ratio $f/p$<a class="hlink" href="#2" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
@@ -136,12 +136,12 @@ $$I=\int f(x)\,dx=\mathbb E_{X\sim p}\!\left[\frac{f(X)}{p(X)}\right].$$
 
 <ol>
 <li><strong>Uniform:</strong> $p(x)=1$, so the per-sample value is just $e^X$.</li>
-<li><strong>Importance:</strong> $p(x)=\tfrac23(1+x)$ — a straight line that leans the same way $e^x$ does. It is easy to sample by inversion (<a href="05_sampling_distributions.html">example 05</a>): its CDF is $P(x)=\tfrac{x+x^2/2}{3/2}$, so $P(X)=U$ becomes $X^2+2X-3U=0$, whose positive root is</li>
+<li><strong>Importance:</strong> $p(x)=\tfrac23(1+x)$ — a straight line that leans the same way $e^x$ does. It is easy to sample by inversion (<a href="05_sampling_distributions.html#2">example 05</a>): its CDF is $P(x)=\tfrac{x+x^2/2}{3/2}$, so $P(X)=U$ becomes $X^2+2X-3U=0$, whose positive root is</li>
 </ol>
 
 $$X=-1+\sqrt{1+3U}.$$
 
-<p>The uniform variance is exactly computable — it is $\operatorname{Var}[e^X]$ for $X\sim\mathrm{Uniform}[0,1]$, the same quantity worked out in <a href="04_variance_and_clt.html">example 04</a>:</p>
+<p>The uniform variance is exactly computable — it is $\operatorname{Var}[e^X]$ for $X\sim\mathrm{Uniform}[0,1]$, the same quantity worked out in <a href="04_variance_and_clt.html#7">example 04</a>:</p>
 
 $$\operatorname{Var}_{\text{uniform}}=\mathbb E[e^{2X}]-\mathbb E[e^X]^2=\int_0^1 e^{2x}\,dx-(e-1)^2=\frac{e^2-1}{2}-(e-1)^2\approx0.2420.$$
 
@@ -184,7 +184,7 @@ $$\frac{\operatorname{Var}_{\text{uniform}}}{\operatorname{Var}_{\text{importanc
 <h2 id="5">5. The code<a class="hlink" href="#5" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 <p class="small">The complete sample on GitHub: <a href="https://github.com/INedelcu/learn/blob/main/06_importance_sampling.cpp" target="_blank" rel="noopener"><code>06_importance_sampling.cpp</code></a>.</p>
 
-<p>Two Welford passes (<a href="01_random_and_estimators.html">example 01</a>) accumulate the per-sample <em>variance</em> of each method’s estimator value, then compare:</p>
+<p>Two Welford passes (<a href="01_random_and_estimators.html#5">example 01</a>) accumulate the per-sample <em>variance</em> of each method’s estimator value, then compare:</p>
 
 <pre class="language-cpp"><code class="language-cpp">auto f    = [](double x){ return std::exp(x); };
 auto pImp = [](double x){ return (2.0/3.0)*(1.0 + x); };           // density ∝ leans like e^x

@@ -76,7 +76,7 @@
 <h1>Resampled Importance Sampling &amp; reservoirs</h1>
 <p class="sub">18_resampled_importance_sampling.cpp — importance-sample a target you can only <em>evaluate</em>, never invert. Draw cheap candidates, weight them by the target, keep one. This is RIS (Talbot 2005), the engine under ReSTIR.</p>
 
-<p class="lead">Importance sampling (<a href="06_importance_sampling.html">example 06</a>) only works if you can <em>sample</em> the density — usually by inverting its CDF (<a href="14_tabulated_cdf_sampling.html">example 14</a>). But the ideal target in rendering, the full integrand $f=\text{BRDF}\cdot L\cdot V\cdot\cos\theta$, has no invertible CDF: you can compute its value at a point, but you cannot draw from it. <strong>Resampled Importance Sampling</strong> gets you samples approximately distributed by such a target using only cheap proposals plus evaluations — and its streaming form, the weighted <em>reservoir</em>, is the data structure modern real-time renderers (ReSTIR, Bitterli 2020) reuse across pixels and frames.</p>
+<p class="lead">Importance sampling (<a href="06_importance_sampling.html#2">example 06</a>) only works if you can <em>sample</em> the density — usually by inverting its CDF (<a href="14_tabulated_cdf_sampling.html#3">example 14</a>). But the ideal target in rendering, the full integrand $f=\text{BRDF}\cdot L\cdot V\cdot\cos\theta$, has no invertible CDF: you can compute its value at a point, but you cannot draw from it. <strong>Resampled Importance Sampling</strong> gets you samples approximately distributed by such a target using only cheap proposals plus evaluations — and its streaming form, the weighted <em>reservoir</em>, is the data structure modern real-time renderers (ReSTIR, Bitterli 2020) reuse across pixels and frames.</p>
 
 <div class="callout key">
 <strong>One-sentence summary.</strong> Draw $M$ cheap candidates from a source $q$ you can sample, give each a resampling weight $w_i=\hat p(X_i)/q(X_i)$ measuring how much the evaluable target $\hat p$ wants it, keep <em>one</em> survivor $Y$ with probability $w_j/\sum_k w_k$, and estimate $\hat I=\frac{f(Y)}{\hat p(Y)}\cdot\frac1M\sum_k w_k$ — unbiased for every $M$, equal to plain importance sampling at $M{=}1$, and converging to <em>ideal</em> importance sampling of $\hat p$ as $M$ grows, all without ever inverting $\hat p$.</p>
@@ -192,7 +192,7 @@ $$\hat p(x)=e^{8x}\quad(\text{sharp — the part worth following}),\qquad h(x)=0
 
 <figure>
 <svg id="fig-restir" viewBox="0 0 600 230" role="img" aria-label="A pixel reservoir merging with neighbor reservoirs (spatial) and its previous-frame reservoir (temporal)."></svg>
-<figcaption>Figure 4. ReSTIR reuse. The center pixel's reservoir is merged with its spatial neighbors' reservoirs and its own temporal (previous-frame) reservoir; each merge is one more RIS step, so good light samples discovered anywhere nearby — or last frame — propagate almost for free. It is the modern descendant of importance sampling (<a href="06_importance_sampling.html">06</a>) and MIS (<a href="09_multiple_importance_sampling.html">09</a>).</figcaption>
+<figcaption>Figure 4. ReSTIR reuse. The center pixel's reservoir is merged with its spatial neighbors' reservoirs and its own temporal (previous-frame) reservoir; each merge is one more RIS step, so good light samples discovered anywhere nearby — or last frame — propagate almost for free. It is the modern descendant of importance sampling (<a href="06_importance_sampling.html#2">06</a>) and MIS (<a href="09_multiple_importance_sampling.html#3">09</a>).</figcaption>
 </figure>
 
 <p>A classic path tracer like <a href="https://github.com/INedelcu/PathTracingDemo">PathTracingDemo</a> samples each light or BRDF lobe independently per pixel and never reuses that work — exactly the $M{=}1$, no-reuse end of this spectrum. RIS and reservoir reuse are the upgrade that turns many-light direct lighting from prohibitive into real-time; they are an advanced topic, but every piece is something this series has already built.</p>
@@ -316,7 +316,7 @@ struct Reservoir {
     gStatic.appendChild(el('path',{d:d,fill:'var(--cdf)','fill-opacity':0.08,stroke:'var(--cdf)','stroke-opacity':0.4,'stroke-width':1}));
     gStatic.appendChild(el('line',{x1:x0,y1:axisY,x2:x1,y2:axisY,stroke:'#9aa0ad'}));
     [0,0.25,0.5,0.75,1].forEach(x=>gStatic.appendChild(txt(px(x),axisY+18,x.toFixed(2),{'font-size':11,fill:'var(--muted)','text-anchor':'middle'})));
-    gStatic.appendChild(txt(px(0.02),curveTop-2,'weight  p̂(x)=e^{8x}  (higher → more likely to be kept)',{'font-size':11.5,fill:'var(--cdf)'}));
+    gStatic.appendChild(txt(px(0.02),curveTop-2,'weight  p̂(x)=e⁸ˣ  (higher → more likely to be kept)',{'font-size':11.5,fill:'var(--cdf)'}));
     gStatic.appendChild(txt(px(0.5),axisY+34,'candidate position x',{'font-size':12,fill:'var(--muted)','text-anchor':'middle'}));
     const gDyn=el('g'); svg.appendChild(gDyn);
     let y=0, W=0, M=0, timer=null;
