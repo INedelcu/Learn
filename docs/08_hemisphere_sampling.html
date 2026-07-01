@@ -9,7 +9,6 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
-<script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
 
 <!-- Prism.js — C++ syntax highlighting (Coy light theme) + copy button -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-coy.min.css">
@@ -152,7 +151,7 @@ $$r=\sqrt{u_1},\quad \phi=2\pi u_2,\quad (x,y)=(r\cos\phi,\ r\sin\phi),\quad z=\
 
 <h2 id="3">3. See the difference<a class="hlink" href="#3" title="Link to this section"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.775 3.275a.75.75 0 0 0 1.06 1.06l1.25-1.25a2 2 0 1 1 2.83 2.83l-2.5 2.5a2 2 0 0 1-2.83 0 .75.75 0 0 0-1.06 1.06 3.5 3.5 0 0 0 4.95 0l2.5-2.5a3.5 3.5 0 0 0-4.95-4.95l-1.25 1.25Zm-4.69 9.64a2 2 0 0 1 0-2.83l2.5-2.5a2 2 0 0 1 2.83 0 .75.75 0 0 0 1.06-1.06 3.5 3.5 0 0 0-4.95 0l-2.5 2.5a3.5 3.5 0 0 0 4.95 4.95l1.25-1.25a.75.75 0 0 0-1.06-1.06l-1.25 1.25a2 2 0 0 1-2.83 0Z"></path></svg></a></h2>
 
-<p>Here are the sampled directions on the hemisphere itself, in 3-D — <strong>drag to orbit, scroll to zoom</strong>. The contrast is immediate: <span style="color:var(--uni)">uniform-solid-angle</span> scatters evenly over the whole dome, while <span style="color:var(--cos)">cosine-weighting</span> bunches the directions toward the normal at the top, starving the near-horizon directions the $\cos\theta$ factor discards anyway. Orbit to look straight <em>down</em> the normal and the dome flattens to the unit disk — there cosine fills it evenly (Malley’s method) while uniform crowds the rim.</p>
+<p>Here are the sampled directions on the hemisphere itself, in 3-D — <strong>drag to orbit, scroll to zoom</strong>. The contrast is immediate: <span style="color:var(--uni)">uniform-solid-angle</span> scatters evenly over the whole dome, while <span style="color:var(--cos)">cosine-weighting</span> bunches the directions toward the normal at the top, starving the near-horizon directions the $\cos\theta$ factor discards anyway. Orbit to look straight <em>down</em> the normal and the dome flattens to the unit disk — there cosine fills it evenly (Malley’s method) while uniform crowds the rim. The cloud is drawn by the GPU in a single call (WebGL2 point sprites), so you can push it to 20,000 samples and watch the density gradient turn smooth — and the scene re-renders only while you interact with it, costing no CPU when idle.</p>
 
 <figure>
 <div id="disk3d" role="img" aria-label="Interactive 3D hemisphere of sampled directions; drag to orbit.">
@@ -165,10 +164,16 @@ $$r=\sqrt{u_1},\quad \phi=2\pi u_2,\quad (x,y)=(r\cos\phi,\ r\sin\phi),\quad z=\
   strategy:
   <button id="dk-uni">uniform (solid angle)</button>
   <button id="dk-cos" class="sel">cosine-weighted</button>
+  <span style="width:2px"></span>
+  points:
+  <button id="dk-n1">2k</button>
+  <button id="dk-n2" class="sel">5k</button>
+  <button id="dk-n3">10k</button>
+  <button id="dk-n4">20k</button>
   <span style="margin-left:auto"></span>
   <button id="dk-roll">Re-roll</button>
 </div>
-<figcaption>Figure 2. The upper hemisphere of directions, in 3-D (drag to orbit). Each dot is a sampled direction on the unit hemisphere; the blue arrow is the surface normal. <span style="color:var(--cos)">Cosine-weighted</span> samples cluster toward the normal (the top); <span style="color:var(--uni)">uniform-solid-angle</span> samples spread evenly over the whole dome — wasting effort on grazing directions the cosine factor down-weights. Orbit to the top-down view to recover the disk picture (cosine fills it evenly, uniform crowds the rim).</figcaption>
+<figcaption>Figure 2. The upper hemisphere of directions, in 3-D (drag to orbit). Each dot is a sampled direction on the unit hemisphere; the blue arrow is the surface normal. <span style="color:var(--cos)">Cosine-weighted</span> samples cluster toward the normal (the top); <span style="color:var(--uni)">uniform-solid-angle</span> samples spread evenly over the whole dome — wasting effort on grazing directions the cosine factor down-weights. Orbit to the top-down view to recover the disk picture (cosine fills it evenly, uniform crowds the rim). Push the point count to 20,000 and the cloud reads as a smooth density falloff.</figcaption>
 </figure>
 
 
@@ -306,93 +311,278 @@ printf("variance reduction (2): %.1fx\n", uni2.var()/cos2.var());  // ~3.9x</cod
   function txt(x,y,s,attrs){const e=svgEl('text',Object.assign({x,y},attrs||{}));e.textContent=s;return e;}
 
   // ===================================================================
-  // Figure 2 — 3D hemisphere of sampled directions (p5.js WebGL)
+  // Figure 2 — 3D hemisphere of sampled directions (WebGL2 + GLSL)
+  // Dome samples: camera-facing point sprites. Ground projections: flat
+  // instanced discs lying in the surface plane (facing up, +Z).
+  // Renders only on interaction — no continuous loop, ~zero idle CPU.
   // ===================================================================
   (function(){
-    const R=150, N=650;
-    const COL={uni:[221,107,32], cos:[47,158,100]};   // --uni (orange), --cos (green)
-    let mode='cos', pts=[];
-    // one unit direction (data z = cosθ = "up"), returned in p5 coords (z-up -> -y)
-    function genDir(){
-      const u1=Math.random(), u2=Math.random(), ph=2*Math.PI*u2;
-      let z,r;
-      if(mode==='uni'){ z=u1; r=Math.sqrt(Math.max(0,1-z*z)); }      // uniform solid angle
-      else { r=Math.sqrt(u1); z=Math.sqrt(Math.max(0,1-u1)); }        // cosine-weighted (Malley)
-      return [r*Math.cos(ph)*R, -z*R, r*Math.sin(ph)*R];
+    const host=document.getElementById('disk3d');
+    const CSSW=600, CSSH=382, DPR=Math.min(window.devicePixelRatio||1,2);
+    const cv=document.createElement('canvas');
+    cv.width=Math.round(CSSW*DPR); cv.height=Math.round(CSSH*DPR);
+    cv.style.width=CSSW+'px'; cv.style.height=CSSH+'px';
+    host.appendChild(cv);
+    const gl=cv.getContext('webgl2',{antialias:true,alpha:false});
+    if(!gl){ const w=document.createElement('p'); w.className='small'; w.textContent='WebGL2 is not available in this browser.'; host.appendChild(w); return; }
+
+    // ---- GLSL ----
+    const flatVS=`#version 300 es
+layout(location=0) in vec3 aPos;
+uniform mat4 uMVP;
+void main(){ gl_Position=uMVP*vec4(aPos,1.0); }`;
+    const flatFS=`#version 300 es
+precision mediump float;
+uniform vec4 uColor;
+out vec4 o;
+void main(){ o=uColor; }`;
+    // Dome samples: screen-aligned point sprites, soft round mask from gl_PointCoord.
+    const ptVS=`#version 300 es
+layout(location=0) in vec3 aPos;
+uniform mat4 uMVP;
+uniform float uSize;
+void main(){
+  gl_Position = uMVP*vec4(aPos,1.0);
+  gl_PointSize = uSize;
+}`;
+    const ptFS=`#version 300 es
+precision mediump float;
+uniform vec4 uColor;
+out vec4 o;
+void main(){
+  vec2 d = gl_PointCoord-0.5;
+  float a = 1.0-smoothstep(0.16,0.25,dot(d,d));
+  if(a<0.02) discard;
+  o = vec4(uColor.rgb, uColor.a*a);
+}`;
+    // Ground projections: one flat disc per sample, instanced from the same
+    // buffer. The quad's corners are offset in the surface (xy) plane, so the
+    // discs physically lie in it and face straight up (+Z): edge-on at grazing
+    // view, full circles from the top-down view.
+    const dcVS=`#version 300 es
+layout(location=0) in vec2 aCorner;
+layout(location=1) in vec3 aInst;
+uniform mat4 uMVP;
+uniform float uRadius;
+out vec2 vUV;
+void main(){
+  vec3 p = vec3(aInst.xy + aCorner*uRadius, 0.0015);
+  vUV = aCorner;
+  gl_Position = uMVP*vec4(p,1.0);
+}`;
+    const dcFS=`#version 300 es
+precision mediump float;
+in vec2 vUV;
+uniform vec4 uColor;
+out vec4 o;
+void main(){
+  float a = 1.0-smoothstep(0.55,1.0,dot(vUV,vUV));
+  if(a<0.02) discard;
+  o = vec4(uColor.rgb, uColor.a*a);
+}`;
+    function compile(type,src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+      if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+    function program(vs,fs){ const pr=gl.createProgram();
+      gl.attachShader(pr,compile(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,compile(gl.FRAGMENT_SHADER,fs));
+      gl.linkProgram(pr); if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); return pr; }
+    const PF=program(flatVS,flatFS), PP=program(ptVS,ptFS), PD=program(dcVS,dcFS);
+    const UF={mvp:gl.getUniformLocation(PF,'uMVP'), color:gl.getUniformLocation(PF,'uColor')};
+    const UP={mvp:gl.getUniformLocation(PP,'uMVP'), color:gl.getUniformLocation(PP,'uColor'), size:gl.getUniformLocation(PP,'uSize')};
+    const UD={mvp:gl.getUniformLocation(PD,'uMVP'), color:gl.getUniformLocation(PD,'uColor'), radius:gl.getUniformLocation(PD,'uRadius')};
+
+    // ---- minimal column-major mat4 ----
+    function lookAt(e,c,up){
+      const nz=a=>{const l=Math.hypot(a[0],a[1],a[2]);return[a[0]/l,a[1]/l,a[2]/l];};
+      const xp=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+      const f=nz([c[0]-e[0],c[1]-e[1],c[2]-e[2]]), s=nz(xp(f,up)), u=xp(s,f);
+      return [s[0],u[0],-f[0],0, s[1],u[1],-f[1],0, s[2],u[2],-f[2],0,
+              -(s[0]*e[0]+s[1]*e[1]+s[2]*e[2]), -(u[0]*e[0]+u[1]*e[1]+u[2]*e[2]), f[0]*e[0]+f[1]*e[1]+f[2]*e[2], 1];
     }
-    function regen(){ pts=[]; for(let i=0;i<N;i++) pts.push(genDir()); }
-    new p5(function(p){
-    p.setup=function(){ const c=p.createCanvas(600,382,p.WEBGL); c.parent('disk3d'); regen(); 
-    // 3/4 view that matches the old rotateX(-0.5) rotateY(-0.3),
-    // but now orbiting around (0, -R, 0) — 1 data-unit up the Y axis.
-    const rx=0.5, ry=0.3;
-    const d=(p.height/2)/Math.tan(Math.PI/6); // default focal distance ≈ 331
-    p.camera(0, 0, 900,        
-        0, -0.3*R, 0,                   // look-at: 1 unit up in data space
-        0,  1, 0                        // up vector
-       );
-    };
-      p.draw=function(){
-        p.background(247,248,251);                 // light theme, matches the figure card
-        p.orbitControl();
-        p.rotateX(-0.5);
-        p.rotateY(-0.3);
-        p.ambientLight(255);                        // full ambient → materials show flat, crisp colors
-        // ground disk (data xy-plane = p5 x-z plane at y=0)
-        p.push(); p.noStroke(); p.fill(235,239,245); p.rotateX(p.HALF_PI); p.ellipse(0, 0, 2*R, 2*R, 128); p.pop();
-        // rim + latitude guide rings imply the dome
-        p.noFill(); p.stroke(205,212,222); p.strokeWeight(1);
-        p.push(); p.rotateX(p.HALF_PI); p.ellipse(0, 0, 2*R, 2*R, 50); p.pop();
-        [0.33,0.66].forEach(function(zz){ const rr=Math.sqrt(1-zz*zz)*R;
-          p.push(); p.translate(0,-zz*R,0); p.rotateX(p.HALF_PI); p.ellipse(0, 0, 2*rr, 2*rr, 50); p.pop(); });
-        // X axis (red)
-        p.stroke(210,50,50); p.strokeWeight(2.5); p.line(0,0,0, R*1.32,0,0); p.noStroke();
-        p.push(); p.translate(R*1.32,0,0); p.rotateZ(-p.HALF_PI); p.ambientMaterial(210,50,50); p.cone(6,16); p.pop();
-        // surface normal (blue), arrow pointing up (-y)
-        p.stroke(43,108,176); p.strokeWeight(2.5); p.line(0,0,0, 0,-R*1.32,0); p.noStroke();
-        p.push(); p.translate(0,-R*1.32,0); p.rotateX(p.PI); p.ambientMaterial(43,108,176); p.cone(6,16); p.pop();        
-        // Z axis (green)
-        p.stroke(50,160,80); p.strokeWeight(2.5); p.line(0,0,0, 0,0,R*1.32); p.noStroke();
-        p.push(); p.translate(0,0,R*1.32); p.rotateX(p.HALF_PI); p.ambientMaterial(50,160,80); p.cone(6,16); p.pop();
-        // the sampled directions
-        const c=COL[mode];        
-        p.push();
-        p.fill(c[0],c[1],c[2], 200);
-        for(let i=0;i<pts.length;i++){ const q=pts[i];
-            p.push();
-            p.translate(q[0],q[1],q[2]);
-            // Billboard: neutralise the rotation in the MV matrix so the
-            // circle's plane stays perpendicular to the view direction.
-            const mv = p._renderer.uMVMatrix.mat4;
-            mv[0]=1; mv[1]=0; mv[2]=0;   // reset column 0
-            mv[4]=0; mv[5]=1; mv[6]=0;   // reset column 1
-            mv[8]=0; mv[9]=0; mv[10]=1;  // reset column 2
-            // mv[12..14] = the translated eye-space position — keep it
-            p.ellipse(0, 0, 3, 3, 12);
-            p.pop(); }
-        p.pop();
-        // their projection on the ground plane, to show the disk pattern
-        p.push();
-        p.fill(128, 128, 128, 64);
-        for(let i=0;i<pts.length;i++){ const q=pts[i];
-            p.push();
-            p.translate(q[0],-1,q[2]);
-            p.rotateX(-p.HALF_PI);
-            p.ellipse(0, 0, 3, 3, 12);
-            p.pop(); }
-        p.pop();
-      };
+    function persp(fovy,asp,near,far){ const s=1/Math.tan(fovy/2), d=near-far;
+      return [s/asp,0,0,0, 0,s,0,0, 0,0,(far+near)/d,-1, 0,0,2*far*near/d,0]; }
+    function mmul(a,b){ const o=new Array(16).fill(0);
+      for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)o[4*i+j]+=b[4*i+k]*a[4*k+j]; return o; }
+
+    // ---- static geometry (data space: dome radius 1, z up) ----
+    function vao(data,dynamic){ const v=gl.createVertexArray(); gl.bindVertexArray(v);
+      const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b);
+      gl.bufferData(gl.ARRAY_BUFFER,data,dynamic?gl.DYNAMIC_DRAW:gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+      gl.bindVertexArray(null); return {vao:v,buf:b}; }
+
+    const SEG=64;
+    const disk=[0,0,0];
+    for(let i=0;i<=SEG;i++){ const a=2*Math.PI*i/SEG; disk.push(Math.cos(a),Math.sin(a),0); }
+    const vDisk=vao(new Float32Array(disk));
+
+    const guides=[];   // rim + two latitude rings, as LINES
+    [[0,1],[0.33,Math.sqrt(1-0.33*0.33)],[0.66,Math.sqrt(1-0.66*0.66)]].forEach(zr=>{
+      const z=zr[0], r=zr[1];
+      for(let i=0;i<SEG;i++){ const a0=2*Math.PI*i/SEG, a1=2*Math.PI*(i+1)/SEG;
+        guides.push(r*Math.cos(a0),r*Math.sin(a0),z, r*Math.cos(a1),r*Math.sin(a1),z); }
     });
-    function setMode(m){ mode=m; regen();
+    const vGuides=vao(new Float32Array(guides)), nGuides=guides.length/3;
+
+    const AXL=1.30, CONE_H=0.11, CONE_R=0.042;
+    function coneFan(axis){        // arrow head: base ring at AXL, tip at AXL+CONE_H
+      const u0=Math.abs(axis[2])<0.9?[0,0,1]:[1,0,0];
+      const xp=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+      const nz=a=>{const l=Math.hypot(a[0],a[1],a[2]);return[a[0]/l,a[1]/l,a[2]/l];};
+      const s=nz(xp(axis,u0)), q=nz(xp(axis,s));
+      const tip=[axis[0]*(AXL+CONE_H),axis[1]*(AXL+CONE_H),axis[2]*(AXL+CONE_H)];
+      const base=i=>{ const a=2*Math.PI*i/12;
+        return [axis[0]*AXL+CONE_R*(Math.cos(a)*s[0]+Math.sin(a)*q[0]),
+                axis[1]*AXL+CONE_R*(Math.cos(a)*s[1]+Math.sin(a)*q[1]),
+                axis[2]*AXL+CONE_R*(Math.cos(a)*s[2]+Math.sin(a)*q[2])]; };
+      const tri=[];
+      for(let i=0;i<12;i++){ const b0=base(i), b1=base(i+1);
+        tri.push(tip[0],tip[1],tip[2], b0[0],b0[1],b0[2], b1[0],b1[1],b1[2]);
+        tri.push(axis[0]*AXL,axis[1]*AXL,axis[2]*AXL, b1[0],b1[1],b1[2], b0[0],b0[1],b0[2]); }
+      return tri;
+    }
+    const AXES=[ {dir:[1,0,0], col:[0.823,0.196,0.196]},     // x (red)
+                 {dir:[0,1,0], col:[0.196,0.627,0.313]},     // y (green)
+                 {dir:[0,0,1], col:[0.169,0.423,0.690]} ];   // normal (blue)
+    const axParts=AXES.map(a=>({ col:a.col,
+      line:vao(new Float32Array([0,0,0, a.dir[0]*AXL,a.dir[1]*AXL,a.dir[2]*AXL])),
+      cone:vao(new Float32Array(coneFan(a.dir))) }));
+
+    // ---- the sample cloud (one dynamic buffer shared by both layers) ----
+    const COUNTS={'dk-n1':2000,'dk-n2':5000,'dk-n3':10000,'dk-n4':20000};
+    let mode='cos', N=COUNTS['dk-n2'];
+    let data=new Float32Array(N*3);
+    const vPts=vao(data,true);
+    // instanced VAO for the flat ground discs: corners per-vertex, sample per-instance
+    const cornerBuf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,cornerBuf);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 1,-1, 1,1, -1,-1, 1,1, -1,1]),gl.STATIC_DRAW);
+    const vDisc=gl.createVertexArray();
+    gl.bindVertexArray(vDisc);
+    gl.bindBuffer(gl.ARRAY_BUFFER,cornerBuf);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,vPts.buf);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+    gl.vertexAttribDivisor(1,1);
+    gl.bindVertexArray(null);
+
+    function genDir(out,i){        // one unit direction, z = cosθ (up)
+      const u1=Math.random(), ph=2*Math.PI*Math.random();
+      let z,r;
+      if(mode==='uni'){ z=u1; r=Math.sqrt(Math.max(0,1-z*z)); }        // uniform solid angle
+      else { r=Math.sqrt(u1); z=Math.sqrt(Math.max(0,1-u1)); }          // cosine-weighted (Malley)
+      out[3*i]=r*Math.cos(ph); out[3*i+1]=r*Math.sin(ph); out[3*i+2]=z;
+    }
+    function regen(){
+      if(data.length!==N*3) data=new Float32Array(N*3);
+      for(let i=0;i<N;i++) genDir(data,i);
+      gl.bindBuffer(gl.ARRAY_BUFFER,vPts.buf);
+      gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
+    }
+
+    // ---- orbit camera (z-up data space) ----
+    const FOVY=0.62;
+    let yaw=-2.10, pitch=0.46, dist=3.05;
+    const TGT=[0,0,0.34];
+    function mvpMat(){
+      const cp=Math.cos(pitch);
+      const eye=[TGT[0]+dist*cp*Math.cos(yaw), TGT[1]+dist*cp*Math.sin(yaw), TGT[2]+dist*Math.sin(pitch)];
+      return mmul(persp(FOVY,CSSW/CSSH,0.1,50), lookAt(eye,TGT,[0,0,1]));
+    }
+
+    const COL={uni:[0.867,0.420,0.125], cos:[0.184,0.620,0.392]};
+    const opts={dome:true,ground:true};
+    let frames=0;
+    function draw(){
+      frames++;
+      const M=new Float32Array(mvpMat());
+      gl.viewport(0,0,cv.width,cv.height);
+      gl.clearColor(0.969,0.973,0.984,1);
+      gl.enable(gl.DEPTH_TEST);
+      gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+      // opaque scene: ground disk, guide rings, axes and arrow cones
+      gl.useProgram(PF); gl.uniformMatrix4fv(UF.mvp,false,M);
+      gl.bindVertexArray(vDisk.vao); gl.uniform4f(UF.color,0.922,0.937,0.961,1);
+      gl.drawArrays(gl.TRIANGLE_FAN,0,SEG+2);
+      gl.bindVertexArray(vGuides.vao); gl.uniform4f(UF.color,0.804,0.831,0.871,1);
+      gl.drawArrays(gl.LINES,0,nGuides);
+      for(const a of axParts){
+        gl.uniform4f(UF.color,a.col[0],a.col[1],a.col[2],1);
+        gl.bindVertexArray(a.line.vao); gl.drawArrays(gl.LINES,0,2);
+        gl.bindVertexArray(a.cone.vao); gl.drawArrays(gl.TRIANGLES,0,72);
+      }
+      // blended sample layers, no depth writes
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+      const pxCss=(N>=20000?3.2:N>=10000?3.6:N>=5000?4.0:4.6);   // dot diameter in CSS px
+      // ground projections: flat discs in the surface plane (face +Z, i.e. up);
+      // world radius chosen so their apparent size matches the dome sprites
+      if(opts.ground){
+        gl.useProgram(PD); gl.uniformMatrix4fv(UD.mvp,false,M);
+        const worldPerPx=2*dist*Math.tan(FOVY/2)/CSSH;
+        gl.uniform1f(UD.radius,0.5*pxCss*worldPerPx);
+        gl.uniform4f(UD.color,0.42,0.45,0.50,0.30);
+        gl.bindVertexArray(vDisc);
+        gl.drawArraysInstanced(gl.TRIANGLES,0,6,N);
+      }
+      // dome samples: camera-facing sprites
+      if(opts.dome){
+        gl.useProgram(PP); gl.uniformMatrix4fv(UP.mvp,false,M);
+        const c=COL[mode];
+        gl.uniform1f(UP.size,pxCss*DPR);
+        gl.uniform4f(UP.color,c[0],c[1],c[2],0.85);
+        gl.bindVertexArray(vPts.vao);
+        gl.drawArrays(gl.POINTS,0,N);
+      }
+      gl.depthMask(true); gl.disable(gl.BLEND);
+      gl.bindVertexArray(null);
+    }
+    let pending=false;
+    function requestDraw(){ if(pending) return; pending=true;
+      requestAnimationFrame(function(){ pending=false; draw(); }); }
+
+    // ---- interaction: drag to orbit, scroll to zoom ----
+    let dragging=false,lx=0,ly=0;
+    cv.addEventListener('pointerdown',e=>{ dragging=true; lx=e.clientX; ly=e.clientY; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove',e=>{ if(!dragging) return;
+      yaw-=(e.clientX-lx)*0.008;
+      pitch=Math.max(-0.08,Math.min(1.45,pitch+(e.clientY-ly)*0.008));
+      lx=e.clientX; ly=e.clientY; requestDraw(); });
+    cv.addEventListener('pointerup',()=>{ dragging=false; });
+    cv.addEventListener('pointercancel',()=>{ dragging=false; });
+    cv.addEventListener('wheel',e=>{ e.preventDefault();
+      dist=Math.max(1.7,Math.min(8,dist*Math.exp(e.deltaY*0.0011))); requestDraw(); },{passive:false});
+
+    // ---- controls ----
+    function setMode(m){ mode=m; regen(); draw();
       document.getElementById('dk-uni').classList.toggle('sel',m==='uni');
       document.getElementById('dk-cos').classList.toggle('sel',m==='cos'); }
+    function setCount(id){ N=COUNTS[id]; regen(); draw();
+      Object.keys(COUNTS).forEach(k=>document.getElementById(k).classList.toggle('sel',k===id)); }
     document.getElementById('dk-uni').onclick=function(){ setMode('uni'); };
     document.getElementById('dk-cos').onclick=function(){ setMode('cos'); };
-    document.getElementById('dk-roll').onclick=function(){ regen(); };
-    // verification hook: mean cosθ over many draws (uniform→0.5, cosine→2/3)
-    window.__fig2={ meanCos:function(m,K){ const old=mode; mode=m; let s=0; for(let i=0;i<K;i++) s+=-genDir()[1]/R; mode=old; return s/K; },
-                    get mode(){return mode;}, get n(){return pts.length;} };
-    setMode('cos');
+    document.getElementById('dk-roll').onclick=function(){ regen(); draw(); };
+    Object.keys(COUNTS).forEach(function(id){ document.getElementById(id).onclick=function(){ setCount(id); }; });
+
+    // verification hooks: mean cosθ over fresh draws (uniform→0.5, cosine→2/3),
+    // a probe that renders synchronously and counts non-background pixels, and
+    // view/layer setters so the flat-disc orientation is testable headless.
+    window.__fig2={
+      meanCos:function(m,K){ const old=mode; mode=m; const tmp=new Float32Array(3);
+        let s=0; for(let i=0;i<K;i++){ genDir(tmp,0); s+=tmp[2]; } mode=old; return s/K; },
+      probe:function(){ draw();
+        const px=new Uint8Array(cv.width*cv.height*4);
+        gl.readPixels(0,0,cv.width,cv.height,gl.RGBA,gl.UNSIGNED_BYTE,px);
+        let lit=0; for(let i=0;i<px.length;i+=4) if(Math.abs(px[i]-247)>10) lit++;
+        return lit; },
+      setView:function(y,pch,d){ yaw=y; pitch=Math.max(-0.08,Math.min(1.45,pch));
+        if(d) dist=Math.max(1.7,Math.min(8,d)); draw(); },
+      layers:function(o){ if(o&&typeof o.dome==='boolean')opts.dome=o.dome;
+        if(o&&typeof o.ground==='boolean')opts.ground=o.ground; draw(); },
+      get mode(){ return mode; }, get n(){ return N; }, get frames(){ return frames; },
+      redraw:draw
+    };
+
+    regen(); draw();
   })();
 
   // ===================================================================
